@@ -7,18 +7,21 @@ class MockStore {
       id: 'mock-script-user',
       title: 'User UAT Test Script',
       description: 'Standard end-user testing for Gappify Accrual Cloud workflows.',
+      category: 'User Training',
       created_at: new Date().toISOString(),
     },
     {
       id: 'mock-script-admin',
       title: 'Admin Test Script',
       description: 'System administration, security, and period close controls testing.',
+      category: 'Admin Controls',
       created_at: new Date().toISOString(),
     },
     {
       id: 'mock-script-supp',
       title: 'Supplemental Test Script',
       description: 'Additional testing scenarios for data access and bulk imports.',
+      category: 'Security',
       created_at: new Date().toISOString(),
     }
   ];
@@ -128,6 +131,15 @@ class MockStore {
     return Promise.resolve(newScript);
   }
 
+  updateScript(id: string, updates: Partial<TestScript>) {
+    const idx = this.scripts.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      this.scripts[idx] = { ...this.scripts[idx], ...updates };
+      return Promise.resolve(this.scripts[idx]);
+    }
+    return Promise.reject('Script not found');
+  }
+
   updateScriptStep(id: string, updates: Partial<TestScriptStep>) {
     const idx = this.steps.findIndex(s => s.id === id);
     if (idx !== -1) {
@@ -159,6 +171,24 @@ class MockStore {
     };
     this.executions.push(newExecution);
     return Promise.resolve(newExecution);
+  }
+
+  getExecutions() {
+    return Promise.resolve(this.executions.map(e => ({
+      ...e,
+      test_scripts: this.scripts.find(s => s.id === e.script_id)
+    })));
+  }
+
+  getExecution(id: string) {
+    const exe = this.executions.find(e => e.id === id);
+    if (exe) {
+      return Promise.resolve({
+        ...exe,
+        test_scripts: this.scripts.find(s => s.id === exe.script_id)
+      });
+    }
+    return Promise.resolve(null);
   }
 
   updateExecutionStep(executionId: string, stepId: string, updates: Partial<TestExecutionStep>) {

@@ -21,6 +21,12 @@ export const api = {
     return data;
   },
 
+  async updateScript(id: string, updates: Partial<TestScript>): Promise<TestScript> {
+    if (!supabase) return mockStore.updateScript(id, updates);
+    const { data } = await supabase.from('test_scripts').update(updates).eq('id', id).select().single();
+    return data;
+  },
+
   async getScriptSteps(scriptId: string): Promise<TestScriptStep[]> {
     if (!supabase) return mockStore.getScriptSteps(scriptId);
     const { data } = await supabase.from('test_script_steps').select('*').eq('script_id', scriptId).order('order_index');
@@ -48,6 +54,31 @@ export const api = {
     if (!supabase) return mockStore.createExecution(execution);
     const { data } = await supabase.from('test_executions').insert(execution).select().single();
     return data;
+  },
+
+  async getExecutions(): Promise<TestExecution[]> {
+    if (!supabase) return mockStore.getExecutions();
+    const { data } = await supabase.from('test_executions')
+      .select('*, test_scripts(title)')
+      .order('created_at', { ascending: false });
+    return data || [];
+  },
+
+  async getExecution(id: string): Promise<TestExecution | null> {
+    if (!supabase) return mockStore.getExecution(id);
+    const { data } = await supabase.from('test_executions')
+      .select('*, test_scripts(*)')
+      .eq('id', id)
+      .single();
+    return data;
+  },
+
+  async getExecutionSteps(executionId: string): Promise<TestExecutionStep[]> {
+    if (!supabase) return mockStore.getExecutionSteps(executionId);
+    const { data } = await supabase.from('test_execution_steps')
+      .select('*')
+      .eq('execution_id', executionId);
+    return data || [];
   },
 
   async updateExecutionStep(executionId: string, stepId: string, updates: Partial<TestExecutionStep>): Promise<TestExecutionStep> {

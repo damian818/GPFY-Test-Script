@@ -2,6 +2,7 @@ export type TestScript = {
   id: string;
   title: string;
   description: string;
+  category?: string;
   created_at: string;
 };
 
