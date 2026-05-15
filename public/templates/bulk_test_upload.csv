@@ -1,0 +1,6 @@
+Script Title,Script Description,Category,Step Instruction,Expected Outcome,Test Data,Order Index
+"User Authentication","Test common login and registration flows","Security","Navigate to the login screen","Login fields are visible","",1
+"User Authentication","Test common login and registration flows","Security","Enter valid customer credentials","Dashboard is displayed","USER_DEMO_01",2
+"User Authentication","Test common login and registration flows","Security","Click logout button","Returned to landing page","",3
+"Inventory Check","Validation of real-time stock levels","Warehousing","Scan item barcode #9902","Item details appear on screen","SKU_9902",1
+"Inventory Check","Validation of real-time stock levels","Warehousing","Confirm quantity is > 0","Pass if stock is positive","",2

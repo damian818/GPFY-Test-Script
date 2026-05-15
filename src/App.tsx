@@ -7,6 +7,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { format, subDays, startOfDay } from 'date-fns';
+import Papa from 'papaparse';
 import { 
   Moon, 
   Sun, 
@@ -54,6 +55,139 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// --- Bulk Upload Component ---
+function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const rows = results.data as any[];
+        setProgress({ current: 0, total: rows.length });
+        
+        // Group by title
+        const scriptsMap = new Map<string, { description: string, category: string, steps: any[] }>();
+        
+        rows.forEach(row => {
+          const title = row['Script Title'] || row['Title'] || 'Untitled Script';
+          if (!scriptsMap.has(title)) {
+            scriptsMap.set(title, {
+              description: row['Script Description'] || row['Description'] || '',
+              category: row['Category'] || 'General',
+              steps: []
+            });
+          }
+          scriptsMap.get(title)?.steps.push({
+            instruction: row['Step Instruction'] || row['Instruction'] || '',
+            notes: row['Expected Outcome'] || row['Expected Result'] || row['Notes'] || '',
+            test_data: row['Test Data'] || '',
+            order_index: parseInt(row['Order Index']) || scriptsMap.get(title)?.steps.length || 0
+          });
+        });
+
+        let current = 0;
+        for (const [title, data] of Array.from(scriptsMap.entries())) {
+          try {
+            const script = await api.createScript({
+              title,
+              description: data.description,
+              category: data.category
+            });
+
+            for (const step of data.steps) {
+              await api.createScriptStep({
+                ...step,
+                script_id: script.id
+              });
+              current++;
+              setProgress(prev => ({ ...prev, current }));
+            }
+          } catch (err) {
+            console.error(`Failed to upload script: ${title}`, err);
+          }
+        }
+
+        setUploading(false);
+        setIsOpen(false);
+        onComplete();
+      }
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="shadow-sm">
+          <UploadCloud className="mr-2 h-4 w-4" />
+          Bulk Upload
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Massive Test Upload</DialogTitle>
+          <DialogDescription>
+            Import multiple scripts and steps via CSV. Use our template for best results.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-6 space-y-4">
+          <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 bg-muted/20 relative">
+            {uploading ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                <div className="text-center">
+                  <p className="font-bold text-sm">Processing {progress.current} of {progress.total} rows</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Creating entities...</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <UploadCloud className="h-10 w-10 text-muted-foreground/40 mb-4" />
+                <p className="text-sm font-medium text-center">Drag and drop or click to upload CSV</p>
+                <input 
+                  type="file" 
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </>
+            )}
+          </div>
+          
+          <div className="bg-primary/5 p-4 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 p-2 rounded-md">
+                <FileText className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs font-bold">Download Template</p>
+                <p className="text-[10px] text-muted-foreground">Standard CSV format</p>
+              </div>
+            </div>
+            <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-8 text-xs font-bold" 
+                asChild
+            >
+              <a href="/templates/bulk_test_upload.csv" download>
+                Download
+              </a>
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // --- Dashboard View ---
 function Dashboard() {
@@ -203,6 +337,7 @@ function Dashboard() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            <BulkUploadDialog onComplete={loadData} />
         </div>
       </div>
 
