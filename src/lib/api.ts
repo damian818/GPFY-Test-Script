@@ -1,6 +1,6 @@
-import { supabase } from './supabase';
-import { mockStore } from './store';
-import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './types';
+import { supabase } from '@/lib/supabase';
+import { mockStore } from '@/lib/store';
+import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from '@/lib/types';
 
 export const api = {
   async getScripts(): Promise<TestScript[]> {

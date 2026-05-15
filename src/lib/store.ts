@@ -1,4 +1,4 @@
-import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './types';
+import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from '@/lib/types';
 
 // In-memory mock store
 class MockStore {

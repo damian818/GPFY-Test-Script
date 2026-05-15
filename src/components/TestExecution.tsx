@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router';
-import { api } from '../lib/api';
-import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from '../lib/types';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from './ui/card';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Input } from './ui/input';
+import { api } from '@/lib/api';
+import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, CheckCircle2, XCircle, UploadCloud, ChevronRight, ChevronLeft, Save } from 'lucide-react';
 
 export default function TestExecutionView() {

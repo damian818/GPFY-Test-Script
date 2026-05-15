@@ -1,12 +1,11 @@
 import { BrowserRouter, Routes, Route } from 'react-router';
 import { useState, useEffect } from 'react';
-import { supabase } from './lib/supabase';
 import { Moon, Sun, Settings } from 'lucide-react';
-import { Button } from './components/ui/button';
-
-import Dashboard from './components/Dashboard';
-import TestScriptEditor from './components/TestScriptEditor';
-import TestExecutionView from './components/TestExecution';
+import Dashboard from '@/components/Dashboard';
+import TestScriptEditor from '@/components/TestScriptEditor';
+import TestExecutionView from '@/components/TestExecution';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
