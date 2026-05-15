@@ -4,28 +4,101 @@ import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './
 class MockStore {
   scripts: TestScript[] = [
     {
-      id: 'mock-script-1',
-      title: 'UAT Accrual Manager',
-      description: 'End-to-end testing for Gappify Accrual Cloud',
+      id: 'mock-script-user',
+      title: 'User UAT Test Script',
+      description: 'Standard end-user testing for Gappify Accrual Cloud workflows.',
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'mock-script-admin',
+      title: 'Admin Test Script',
+      description: 'System administration, security, and period close controls testing.',
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'mock-script-supp',
+      title: 'Supplemental Test Script',
+      description: 'Additional testing scenarios for data access and bulk imports.',
       created_at: new Date().toISOString(),
     }
   ];
   
   steps: TestScriptStep[] = [
+    // USER SCRIPT STEPS
     {
-      id: 'step-1',
-      script_id: 'mock-script-1',
-      section: 'Accrual Manager Filters',
-      instruction: 'Create a new test filter for your department.',
-      notes: 'Ensure that the filter appears in the dropdown.',
+      id: 'u-1',
+      script_id: 'mock-script-user',
+      section: 'Accrual Manager',
+      instruction: 'Navigate to Accrual Manager and confirm Vendors/POs were completely ingested from your ERP.',
+      notes: 'Check integration criteria with GPFY project team.',
       order_index: 0,
     },
     {
-      id: 'step-2',
-      script_id: 'mock-script-1',
-      section: 'Accrual Manager Values',
-      instruction: 'Activate monthly confirms by choosing "Unbilled".',
-      notes: 'Verify the COA values.',
+      id: 'u-2',
+      script_id: 'mock-script-user',
+      section: 'Accrual Manager Filters',
+      instruction: 'Create a new test filter for your department or a specific GL account.',
+      notes: 'Test saving and applying these filters.',
+      order_index: 1,
+    },
+    {
+      id: 'u-3',
+      script_id: 'mock-script-user',
+      section: 'Complete Confirms',
+      instruction: 'Review Vendor Confirm emails and complete the Accrual Form via the provided link.',
+      notes: 'Take a screenshot of input values before submitting.',
+      order_index: 2,
+    },
+    {
+      id: 'u-4',
+      script_id: 'mock-script-user',
+      section: 'Review Center',
+      instruction: 'Familiarize yourself with the three-section layout: Historical, Month-to-Date, and Gappify Accruals.',
+      notes: 'Test drilling down into accrual details.',
+      order_index: 3,
+    },
+
+    // ADMIN SCRIPT STEPS
+    {
+      id: 'a-1',
+      script_id: 'mock-script-admin',
+      section: 'User Management',
+      instruction: 'Create a new test user and verify that an email notification is sent.',
+      notes: 'Test the user activation process.',
+      order_index: 0,
+    },
+    {
+      id: 'a-2',
+      script_id: 'mock-script-admin',
+      section: 'Period Close Controls',
+      instruction: 'Close a fiscal period in Period Manager and verify that the lock icon appears.',
+      notes: 'Test opening and closing workflows.',
+      order_index: 1,
+    },
+    {
+      id: 'a-3',
+      script_id: 'mock-script-admin',
+      section: 'Issue Handling',
+      instruction: 'Configure multiple accrual flow launches and check for schedule conflicts.',
+      notes: 'Ensure at least a 15-minute interval between launches.',
+      order_index: 2,
+    },
+
+    // SUPPLEMENTAL STEPS
+    {
+      id: 's-1',
+      script_id: 'mock-script-supp',
+      section: 'Data Access Controls',
+      instruction: 'Restrict a user to specific Departments and verify they cannot see data from other areas.',
+      notes: 'Test with "Full Access" unchecked.',
+      order_index: 0,
+    },
+    {
+      id: 's-2',
+      script_id: 'mock-script-supp',
+      section: 'Import/Export',
+      instruction: 'Export Accrual Rules to CSV, modify a field, and import it back to verify the update.',
+      notes: 'Check email notifications for the import summary.',
       order_index: 1,
     }
   ];

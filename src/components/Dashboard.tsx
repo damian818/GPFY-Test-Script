@@ -57,11 +57,9 @@ export default function Dashboard() {
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Script
-            </Button>
+          <DialogTrigger render={<Button />}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create Script
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -125,17 +123,13 @@ export default function Dashboard() {
                 Created: {new Date(script.created_at).toLocaleDateString()}
               </CardContent>
               <CardFooter className="gap-2 border-t pt-4">
-                <Button asChild variant="outline" className="flex-1">
-                  <Link to={`/admin/scripts/${script.id}`}>
+                <Button render={<Link to={`/admin/scripts/${script.id}`} />} variant="outline" className="flex-1">
                     <Settings2 className="mr-2 h-4 w-4" />
                     Edit
-                  </Link>
                 </Button>
-                <Button asChild className="flex-1">
-                  <Link to={`/execute/${script.id}`}>
+                <Button render={<Link to={`/execute/${script.id}`} />} className="flex-1">
                     <Play className="mr-2 h-4 w-4" />
                     Run
-                  </Link>
                 </Button>
               </CardFooter>
             </Card>

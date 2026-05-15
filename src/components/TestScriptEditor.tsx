@@ -90,8 +90,8 @@ export default function TestScriptEditor() {
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div className="flex items-center space-x-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link to="/"><ArrowLeft className="h-4 w-4" /></Link>
+        <Button variant="outline" size="icon" render={<Link to="/" />}>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{script.title}</h1>

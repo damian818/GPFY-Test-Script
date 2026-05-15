@@ -160,8 +160,8 @@ export default function TestExecutionView() {
              <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white" onClick={() => alert("Done!")}>Submit Feedback</Button>
           </CardContent>
         </Card>
-        <Button variant="link" asChild className="w-full text-slate-400 hover:text-slate-200">
-           <Link to="/">Back to Dashboard</Link>
+        <Button variant="link" render={<Link to="/" />} className="w-full text-slate-400 hover:text-slate-200">
+           Back to Dashboard
         </Button>
         </div>
       </div>
