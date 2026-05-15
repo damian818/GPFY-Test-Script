@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Gappify Test Script Manager",
+  "description": "An interactive UAT test script manager with video/image evidence upload and real-time execution tracking.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
