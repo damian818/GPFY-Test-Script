@@ -125,11 +125,9 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="shadow-sm">
-          <UploadCloud className="mr-2 h-4 w-4" />
-          Bulk Upload
-        </Button>
+      <DialogTrigger render={<Button variant="outline" className="shadow-sm" />}>
+        <UploadCloud className="mr-2 h-4 w-4" />
+        Bulk Upload
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -176,11 +174,9 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
                 size="sm" 
                 variant="ghost" 
                 className="h-8 text-xs font-bold" 
-                asChild
+                render={<a href="/templates/bulk_test_upload.csv" download />}
             >
-              <a href="/templates/bulk_test_upload.csv" download>
-                Download
-              </a>
+              Download
             </Button>
           </div>
         </div>
