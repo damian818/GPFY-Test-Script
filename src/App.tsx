@@ -4,7 +4,7 @@ import { Moon, Sun, Settings } from 'lucide-react';
 import Dashboard from '@/components/Dashboard';
 import TestScriptEditor from '@/components/TestScriptEditor';
 import TestExecutionView from '@/components/TestExecution';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 
 export default function App() {
