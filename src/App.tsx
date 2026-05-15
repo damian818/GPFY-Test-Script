@@ -3,6 +3,11 @@ import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate, useSearchParams } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell, Legend
+} from 'recharts';
+import { format, subDays, startOfDay } from 'date-fns';
+import { 
   Moon, 
   Sun, 
   Settings, 
@@ -28,7 +33,14 @@ import {
   ExternalLink,
   ChevronDown,
   Tag,
-  Filter
+  Filter,
+  Database,
+  Copy,
+  PlayCircle,
+  Image,
+  BarChart2,
+  GitBranch,
+  GitPullRequest
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
@@ -41,11 +53,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // --- Dashboard View ---
 function Dashboard() {
   const [scripts, setScripts] = useState<TestScript[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -54,7 +68,7 @@ function Dashboard() {
   const [newCategory, setNewCategory] = useState('');
 
   const [executions, setExecutions] = useState<TestExecution[]>([]);
-  const [activeTab, setActiveTab] = useState<'scripts' | 'history'>('scripts');
+  const [activeTab, setActiveTab] = useState<'scripts' | 'history' | 'analytics'>('scripts');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
   useEffect(() => {
@@ -63,6 +77,7 @@ function Dashboard() {
 
   const loadData = async () => {
     setLoading(true);
+    setDbError(null);
     try {
       const [scriptsData, executionsData] = await Promise.all([
         api.getScripts(),
@@ -70,8 +85,9 @@ function Dashboard() {
       ]);
       setScripts(scriptsData);
       setExecutions(executionsData);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setDbError(e.message || 'Failed to connect to database');
     }
     setLoading(false);
   };
@@ -104,7 +120,13 @@ function Dashboard() {
     >
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gappify QA</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-3xl font-bold tracking-tight">Gappify QA</h1>
+            <div className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border flex items-center gap-1 ${supabase ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'}`}>
+              <Database className="h-3 w-3" />
+              {supabase ? 'Live: Supabase' : 'Demo: Mock Storage'}
+            </div>
+          </div>
           <p className="text-muted-foreground mt-1 text-sm">Interactive UAT tracking and reporting for the modern enterprise.</p>
         </div>
         
@@ -121,6 +143,12 @@ function Dashboard() {
                     onClick={() => setActiveTab('history')}
                 >
                     History
+                </button>
+                <button 
+                    className={`flex-1 md:flex-none px-6 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'analytics' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}
+                    onClick={() => setActiveTab('analytics')}
+                >
+                    Analytics
                 </button>
             </div>
 
@@ -177,6 +205,49 @@ function Dashboard() {
             </Dialog>
         </div>
       </div>
+
+      {!supabase && (
+        <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-4 mb-8"
+        >
+            <div className="bg-amber-500 text-white p-2 rounded-lg">
+                <AlertCircle className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+                <h3 className="text-sm font-bold text-amber-800 dark:text-amber-500 uppercase tracking-widest">Persistence is disabled (Demo Mode)</h3>
+                <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-1 leading-relaxed">
+                    You are currently using in-memory storage. <strong>Data will be lost on page refresh.</strong> 
+                    To enable persistence, add your Supabase credentials in the <strong>Settings {'>'} Secrets</strong> panel.
+                </p>
+                <div className="flex gap-4 mt-3">
+                    <div className="text-[9px] font-black uppercase bg-amber-500/5 px-2 py-1 rounded inline-block border border-amber-500/10">VITE_SUPABASE_URL</div>
+                    <div className="text-[9px] font-black uppercase bg-amber-500/5 px-2 py-1 rounded inline-block border border-amber-500/10">VITE_SUPABASE_ANON_KEY</div>
+                </div>
+            </div>
+        </motion.div>
+      )}
+
+      {supabase && dbError && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-4 mb-8">
+            <div className="bg-destructive text-white p-2 rounded-lg">
+                <AlertCircle className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+                <h3 className="text-sm font-bold text-destructive uppercase tracking-widest">Database Schema Mismatch</h3>
+                <p className="text-xs text-destructive/80 mt-1 leading-relaxed">
+                    Connected to Supabase, but encountered an error. This usually means your database tables are missing or out of sync.
+                </p>
+                <div className="mt-2 p-2 bg-black/5 rounded text-[10px] font-mono text-destructive break-all">
+                    {dbError}
+                </div>
+            </div>
+            <Button variant="outline" size="sm" className="border-destructive/20 hover:bg-destructive/10 text-destructive" onClick={() => window.open('/supabase-schema.sql', '_blank')}>
+                View SQL Schema
+            </Button>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {activeTab === 'scripts' ? (
@@ -259,7 +330,7 @@ function Dashboard() {
                   </div>
               )}
           </motion.div>
-        ) : (
+        ) : activeTab === 'history' ? (
             <motion.div
               key="history-tab"
               initial={{ opacity: 0, x: 10 }}
@@ -332,9 +403,295 @@ function Dashboard() {
                     </Card>
                 )}
             </motion.div>
+        ) : (
+            <motion.div
+              key="analytics-tab"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <AnalyticsDashboard executions={executions} />
+            </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+// --- Analytics Dashboard Component ---
+function AnalyticsDashboard({ executions }: { executions: TestExecution[] }) {
+  // 1. Trend Data (Last 7 days)
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = subDays(new Date(), i);
+    return {
+      dateStr: format(date, 'MMM dd'),
+      date: startOfDay(date),
+      pass: 0,
+      fail: 0,
+      total: 0,
+      avgCompletion: 0,
+      completionSum: 0,
+      durationSum: 0,
+      durationCount: 0,
+      avgDuration: 0
+    };
+  }).reverse();
+
+  executions.forEach(exe => {
+    const exeDate = new Date(exe.created_at);
+    const day = last7Days.find(d => 
+      exeDate.getDate() === d.date.getDate() && 
+      exeDate.getMonth() === d.date.getMonth()
+    );
+    if (day) {
+      day.total++;
+      if (exe.status === 'completed') {
+        day.pass++;
+        if (exe.completed_at) {
+          const duration = (new Date(exe.completed_at).getTime() - new Date(exe.created_at).getTime()) / 1000 / 60; // in minutes
+          day.durationSum += duration;
+          day.durationCount++;
+        }
+      } else {
+        day.fail++;
+      }
+
+      if (exe.total_steps && exe.total_steps > 0) {
+        const completion = ((exe.passed_steps || 0) + (exe.failed_steps || 0)) / exe.total_steps;
+        day.completionSum += completion * 100;
+      }
+    }
+  });
+
+  // Calculate averages
+  last7Days.forEach(day => {
+    if (day.total > 0) day.avgCompletion = Math.round(day.completionSum / day.total);
+    if (day.durationCount > 0) day.avgDuration = Number((day.durationSum / day.durationCount).toFixed(1));
+  });
+
+  // 2. Status Distribution
+  const statusData = [
+    { name: 'Completed', value: executions.filter(e => e.status === 'completed').length, color: '#10b981' },
+    { name: 'In Progress', value: executions.filter(e => e.status === 'in_progress').length, color: '#f59e0b' },
+  ].filter(d => d.value > 0);
+
+  // 3. Stats
+  const totalExecutions = executions.length;
+  const completionRate = totalExecutions > 0 
+    ? Math.round((executions.filter(e => e.status === 'completed').length / totalExecutions) * 100) 
+    : 0;
+  
+  const completedStats = executions.filter(e => e.status === 'completed' && e.completed_at);
+  const avgSessionTime = completedStats.length > 0
+    ? (completedStats.reduce((acc, curr) => acc + (new Date(curr.completed_at!).getTime() - new Date(curr.created_at).getTime()), 0) / completedStats.length / 1000 / 60).toFixed(1)
+    : '0';
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-primary/5 border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Total Runs</CardDescription>
+            <CardTitle className="text-3xl font-black">{totalExecutions}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-green-500/5 border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600/60">Completion Rate</CardDescription>
+            <CardTitle className="text-3xl font-black text-green-600">{completionRate}%</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-blue-500/5 border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600/60">Avg. Duration</CardDescription>
+            <CardTitle className="text-3xl font-black text-blue-600">{avgSessionTime}m</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-amber-500/5 border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600/60">Active Sessions</CardDescription>
+            <CardTitle className="text-3xl font-black text-amber-600">{executions.filter(e => e.status === 'in_progress').length}</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="shadow-lg shadow-primary/5 border-primary/5 overflow-hidden">
+          <CardHeader className="bg-muted/10 pb-6 border-b">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <BarChart2 className="h-5 w-5 text-primary" />
+              Volume & Time Trends
+            </CardTitle>
+            <CardDescription>Daily execution count and average duration (min)</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] pt-8">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={last7Days}>
+                <defs>
+                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+                <XAxis 
+                  dataKey="dateStr" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#888' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#888' }}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', fontWeight: 700 }}
+                  cursor={{ stroke: 'var(--primary)', strokeWidth: 1 }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                <Area 
+                    name="Runs"
+                    type="monotone" 
+                    dataKey="total" 
+                    stroke="var(--primary)" 
+                    strokeWidth={4} 
+                    fillOpacity={1} 
+                    fill="url(#colorTotal)" 
+                    animationDuration={1500}
+                />
+                <Area 
+                    name="Avg Duration (min)"
+                    type="monotone" 
+                    dataKey="avgDuration" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2} 
+                    fillOpacity={0} 
+                    strokeDasharray="5 5"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg shadow-primary/5 border-primary/5 overflow-hidden">
+          <CardHeader className="bg-muted/10 pb-6 border-b">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <GitPullRequest className="h-5 w-5 text-indigo-500" />
+              Completion Depth
+            </CardTitle>
+            <CardDescription>Average % of script steps executed/passed</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] pt-8">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={last7Days}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+                <XAxis 
+                  dataKey="dateStr" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#888' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#888' }}
+                  domain={[0, 100]}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontWeight: 700 }}
+                  formatter={(value) => [`${value}%`, 'Avg Completion']}
+                />
+                <Bar 
+                  dataKey="avgCompletion" 
+                  fill="#6366f1" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={30}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1 shadow-lg shadow-primary/5 border-primary/5 overflow-hidden">
+          <CardHeader className="bg-muted/10 pb-6 border-b">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <PieChart className="h-5 w-5 text-green-500" />
+              Outcome Breakdown
+            </CardTitle>
+            <CardDescription>Final session statuses</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] flex items-center justify-center pt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={70}
+                  outerRadius={100}
+                  paddingAngle={8}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontWeight: 700 }}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36} 
+                  iconType="circle"
+                  formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{value}</span>}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Top Failing Scripts Placeholder or similar */}
+        <Card className="lg:col-span-2 shadow-lg shadow-primary/5 border-primary/5">
+           <CardHeader className="bg-muted/10 pb-6 border-b">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Pass/Fail Performance
+            </CardTitle>
+            <CardDescription>Execution health by volume</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] pt-8">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={last7Days}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+                <XAxis 
+                  dataKey="dateStr" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#888' }}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#888' }}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontWeight: 700 }}
+                />
+                <Legend iconType="circle" />
+                <Bar dataKey="pass" name="Completed" fill="#10b981" stackId="a" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="fail" name="Incomplete" fill="#f59e0b" stackId="a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -457,11 +814,30 @@ function ReportView() {
                     </span>
                   </div>
                   <h3 className="font-bold text-lg leading-tight mb-2">Step {idx + 1}: {stepResult.step.instruction}</h3>
-                  {stepResult.step.notes && (
-                    <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded italic">
-                      Expected: {stepResult.step.notes}
-                    </p>
-                  )}
+                   <div className="flex flex-wrap gap-4 mt-3">
+                      {stepResult.step.notes && (
+                        <p className="text-xs text-muted-foreground bg-muted/30 p-2 rounded italic flex-1 border border-dotted">
+                          Expected: {stepResult.step.notes}
+                        </p>
+                      )}
+                      {stepResult.step.test_data && (
+                        <div className="flex items-center gap-2 bg-primary/5 px-3 py-2 rounded-lg border border-primary/20">
+                          <Database className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-xs font-bold text-primary tracking-tight">{stepResult.step.test_data}</span>
+                        </div>
+                      )}
+                      {stepResult.step.linked_step_id && (() => {
+                        const linked = exeSteps.find(s => s.step.id === stepResult.step.linked_step_id);
+                        if (!linked) return null;
+                        const linkedIdx = exeSteps.indexOf(linked) + 1;
+                        return (
+                          <div className="flex items-center gap-2 bg-muted/50 px-3 py-2 rounded-lg border border-muted-foreground/10">
+                            <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Linked to Step {linkedIdx}</span>
+                          </div>
+                        );
+                      })()}
+                   </div>
                   
                   {stepResult.comments && (
                     <div className="mt-4 pt-4 border-t border-muted/40">
@@ -517,6 +893,10 @@ function ScriptEditor() {
   const [newSection, setNewSection] = useState('');
   const [newInstruction, setNewInstruction] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newTestData, setNewTestData] = useState('');
+  const [newMediaUrl, setNewMediaUrl] = useState('');
+  const [newLinkedStepId, setNewLinkedStepId] = useState<string>('none');
+  const [stepMediaUploading, setStepMediaUploading] = useState(false);
 
   const [editScript, setEditScript] = useState<{ title: string, description: string, category: string } | null>(null);
   const [savingScript, setSavingScript] = useState(false);
@@ -559,14 +939,38 @@ function ScriptEditor() {
         section: newSection || 'General',
         instruction: newInstruction,
         notes: newNotes,
+        test_data: newTestData,
+        media_url: newMediaUrl,
+        linked_step_id: newLinkedStepId === 'none' ? undefined : newLinkedStepId,
         order_index: steps.length
       });
       setSteps([...steps, step]);
       setNewInstruction('');
       setNewNotes('');
+      setNewTestData('');
+      setNewMediaUrl('');
+      setNewLinkedStepId('none');
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleStepMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, stepId?: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setStepMediaUploading(true);
+    try {
+      const url = await api.uploadMedia(file);
+      if (isNew) {
+        setNewMediaUrl(url);
+      } else if (stepId) {
+        await api.updateScriptStep(stepId, { media_url: url });
+        setSteps(steps.map(s => s.id === stepId ? { ...s, media_url: url } : s));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setStepMediaUploading(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -664,8 +1068,16 @@ function ScriptEditor() {
           <Card key={step.id}>
             <CardHeader className="py-4 bg-muted/30 border-b flex flex-row items-center justify-between">
               <div>
-                <CardDescription className="font-semibold text-primary">{step.section}</CardDescription>
-                <CardTitle className="text-lg">Step {index + 1}</CardTitle>
+                 <Input 
+                    value={step.section} 
+                    onChange={async (e) => {
+                        const val = e.target.value;
+                        setSteps(steps.map(s => s.id === step.id ? { ...s, section: val } : s));
+                        await api.updateScriptStep(step.id, { section: val });
+                    }}
+                    className="h-6 px-1 py-0 text-[10px] font-bold text-primary uppercase tracking-widest border-none bg-transparent hover:bg-primary/5 focus:bg-primary/5 transition-colors w-auto inline-block"
+                 />
+                 <CardTitle className="text-lg">Step {index + 1}</CardTitle>
               </div>
               <div className="flex space-x-1">
                 <Button variant="ghost" size="icon" onClick={() => moveStep(index, -1)} disabled={index === 0}>
@@ -679,51 +1091,215 @@ function ScriptEditor() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="py-4 space-y-4">
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Instruction</Label>
-                <p className="text-base font-medium leading-relaxed">{step.instruction}</p>
-              </div>
-              {step.notes && (
-                <div>
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-1 block">Expected Result / Notes</Label>
-                  <p className="text-sm bg-muted/50 p-3 rounded-lg border">{step.notes}</p>
+            <CardContent className="py-6 space-y-6">
+              <div className="grid md:grid-cols-12 gap-8">
+                <div className="md:col-span-7 space-y-5">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Functional Instruction</Label>
+                    <Textarea 
+                        value={step.instruction}
+                        onChange={async (e) => {
+                            const val = e.target.value;
+                            setSteps(steps.map(s => s.id === step.id ? { ...s, instruction: val } : s));
+                            await api.updateScriptStep(step.id, { instruction: val });
+                        }}
+                        className="text-base font-bold leading-tight resize-none border-2 focus:ring-primary/20"
+                        placeholder="What should the user do?"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Expected Outcome / Validation Notes</Label>
+                    <Textarea 
+                        value={step.notes || ''}
+                        onChange={async (e) => {
+                            const val = e.target.value;
+                            setSteps(steps.map(s => s.id === step.id ? { ...s, notes: val } : s));
+                            await api.updateScriptStep(step.id, { notes: val });
+                        }}
+                        placeholder="What constitutes a 'Pass' for this step?"
+                        className="text-sm bg-muted/20 border-muted/50 resize-none"
+                    />
+                  </div>
                 </div>
-              )}
+
+                <div className="md:col-span-5 flex flex-col gap-5">
+                  <div className="bg-muted/30 p-5 rounded-2xl border border-dashed border-muted-foreground/20 space-y-5">
+                    <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                            <Settings2 className="h-3 w-3" />
+                            Step Configuration
+                        </Label>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Required Test Data / Inputs</Label>
+                        <div className="relative group">
+                            <Input 
+                                value={step.test_data || ''} 
+                                placeholder="e.g. USER_PROD_01, TEST_CREDIT_CARD"
+                                onChange={async (e) => {
+                                    const val = e.target.value;
+                                    setSteps(steps.map(s => s.id === step.id ? { ...s, test_data: val } : s));
+                                    await api.updateScriptStep(step.id, { test_data: val });
+                                }}
+                                className="bg-background font-mono text-xs border-primary/10 h-9"
+                            />
+                            <Database className="absolute right-3 top-2.5 h-3.5 w-3.5 text-primary/30" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Flow Dependency (Link Step)</Label>
+                        <Select 
+                            value={step.linked_step_id || 'none'} 
+                            onValueChange={async (val) => {
+                                const linkedId = val === 'none' ? undefined : val;
+                                setSteps(steps.map(s => s.id === step.id ? { ...s, linked_step_id: linkedId } : s));
+                                await api.updateScriptStep(step.id, { linked_step_id: linkedId });
+                            }}
+                        >
+                            <SelectTrigger className="w-full bg-background border-primary/10 h-9 text-xs">
+                                <SelectValue placeholder="No dependency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">No dependency</SelectItem>
+                                {steps.filter(s => s.id !== step.id).map((s, i) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                        Step {steps.indexOf(s) + 1}: {s.instruction.substring(0, 30)}...
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Media Attachment (Reference)</Label>
+                        {step.media_url ? (
+                            <div className="relative aspect-video bg-black rounded-lg overflow-hidden border shadow-sm group">
+                                {step.media_url.match(/\.(mp4|webm)$/) ? (
+                                    <video src={step.media_url} controls className="w-full h-full object-contain" />
+                                ) : (
+                                    <img src={step.media_url} alt="Step Aid" className="w-full h-full object-contain" />
+                                )}
+                                <Button 
+                                    variant="destructive" 
+                                    size="icon" 
+                                    className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                    onClick={() => {
+                                        api.updateScriptStep(step.id, { media_url: '' });
+                                        setSteps(steps.map(s => s.id === step.id ? { ...s, media_url: undefined } : s));
+                                    }}
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="h-20 border-2 border-dotted rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-background/50 relative cursor-pointer hover:bg-background/80 hover:border-primary/30 transition-all">
+                                <UploadCloud className="h-5 w-5 mb-1 text-primary/40" />
+                                <span className="text-[8px] font-black uppercase tracking-widest text-primary/60">Upload Visual Aid</span>
+                                <input 
+                                    type="file" 
+                                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                                    onChange={(e) => handleStepMediaUpload(e, false, step.id)}
+                                    disabled={stepMediaUploading}
+                                />
+                            </div>
+                        )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         ))}
 
-        <Card className="border-dashed border-2 bg-transparent">
+        <Card className="border-dashed border-2 bg-muted/5">
           <CardHeader>
-            <CardTitle>Add New Step</CardTitle>
-            <CardDescription>Append a new activity to this test script.</CardDescription>
+            <CardTitle className="text-xl font-black uppercase tracking-tight">Step Addition</CardTitle>
+            <CardDescription className="font-medium">Define a new functional activity for this schema.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Section / Module</Label>
-              <Input value={newSection} onChange={e => setNewSection(e.target.value)} placeholder="e.g. Accrual Manager" />
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Functional Area / Module</Label>
+                    <Input value={newSection} onChange={e => setNewSection(e.target.value)} placeholder="e.g. Accrual Manager" className="border-2" />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Init Test Data</Label>
+                    <Input value={newTestData} onChange={e => setNewTestData(e.target.value)} placeholder="e.g. USER_01, INV_999" className="border-2 font-mono text-xs" />
+                </div>
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Next Step Logic</Label>
+                    <Select value={newLinkedStepId} onValueChange={setNewLinkedStepId}>
+                        <SelectTrigger className="border-2 bg-background h-10">
+                            <SelectValue placeholder="No link" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">No dependency</SelectItem>
+                            {steps.map((s, i) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                    Step {i + 1}: {s.instruction.substring(0, 20)}...
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
+            
             <div className="space-y-2">
-              <Label>Instruction *</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Action Instruction *</Label>
               <Textarea 
                 value={newInstruction} 
                 onChange={e => setNewInstruction(e.target.value)} 
-                placeholder="Describe what the user should do..." 
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Guidance / Expected Result</Label>
-              <Textarea 
-                value={newNotes} 
-                onChange={e => setNewNotes(e.target.value)} 
-                placeholder="What should the user see or verify?" 
+                placeholder="Clear, concise instruction for the tester..." 
                 rows={2}
+                className="border-2 text-lg font-bold"
               />
             </div>
-            <Button onClick={handleAddStep} disabled={!newInstruction} className="w-full">
-              <Plus className="h-4 w-4 mr-2" /> Add Step
+            
+            <div className="grid md:grid-cols-12 gap-6 bg-muted/20 p-6 rounded-2xl border border-muted/30">
+                <div className="md:col-span-8 space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Expected Outcome</Label>
+                    <Textarea 
+                        value={newNotes} 
+                        onChange={e => setNewNotes(e.target.value)} 
+                        placeholder="What should be verified?" 
+                        rows={3}
+                        className="bg-background"
+                    />
+                </div>
+                <div className="md:col-span-4 space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Reference Media</Label>
+                    <div className={`h-[82px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-background relative transition-all duration-300 ${newMediaUrl ? 'border-green-500 bg-green-50/50' : 'hover:border-primary/50'}`}>
+                        {stepMediaUploading ? (
+                            <div className="flex flex-col items-center gap-1">
+                                <div className="h-4 w-4 border-t-2 border-primary rounded-full animate-spin" />
+                                <span className="text-[10px] font-bold text-primary tracking-tighter">PROCESSING</span>
+                            </div>
+                        ) : newMediaUrl ? (
+                            <div className="flex flex-col items-center">
+                                <Check className="h-4 w-4 text-green-500" />
+                                <span className="text-[10px] font-black text-green-600 uppercase">Attached</span>
+                                <Button variant="ghost" size="xs" onClick={() => setNewMediaUrl('')} className="h-5 text-[9px] mt-1">Change</Button>
+                            </div>
+                        ) : (
+                            <>
+                                <UploadCloud className="h-5 w-5 mb-1 opacity-40 text-primary" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">Upload</span>
+                            </>
+                        )}
+                        <input 
+                            type="file" 
+                            className="absolute inset-0 opacity-0 cursor-pointer" 
+                            onChange={(e) => handleStepMediaUpload(e, true)}
+                            disabled={stepMediaUploading}
+                        />
+                    </div>
+                </div>
+            </div>
+            
+            <Button onClick={handleAddStep} disabled={!newInstruction || stepMediaUploading} className="w-full h-14 text-lg font-black uppercase tracking-widest shadow-xl shadow-primary/10">
+              <Plus className="h-5 w-5 mr-3" /> Commit & Stage Step
             </Button>
           </CardContent>
         </Card>
@@ -814,7 +1390,18 @@ function ExecutionView() {
         setMediaUrl(null);
       } else {
         // All steps completed
-        await api.updateExecution(execution.id, { status: 'completed' });
+        // Fetch stats before completing
+        const results = await api.getExecutionSteps(execution.id);
+        const passed = results.filter(r => r.status === 'pass').length;
+        const failed = results.filter(r => r.status === 'fail').length;
+        
+        await api.updateExecution(execution.id, { 
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          total_steps: steps.length,
+          passed_steps: passed,
+          failed_steps: failed
+        });
         navigate('/');
       }
     } catch (e) {
@@ -890,6 +1477,71 @@ function ExecutionView() {
                             </div>
                         </div>
                     )}
+
+                    {currentStep.linked_step_id && (() => {
+                        const linked = steps.find(s => s.id === currentStep.linked_step_id);
+                        if (!linked) return null;
+                        const linkedIndex = steps.indexOf(linked) + 1;
+                        return (
+                            <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                        <GitBranch className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Flow Dependency</p>
+                                        <p className="text-sm font-bold">Relates to Step {linkedIndex}: <span className="text-muted-foreground font-medium">{linked.instruction.substring(0, 40)}...</span></p>
+                                    </div>
+                                </div>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-xs font-bold hover:bg-primary/10"
+                                    onClick={() => setCurrentStepIndex(linkedIndex - 1)}
+                                >
+                                    Jump to Reference
+                                </Button>
+                            </div>
+                        );
+                    })()}
+
+                    <div className="grid md:grid-cols-2 gap-8">
+                        {currentStep.test_data && (
+                            <div className="space-y-3">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <Database className="h-3 w-3" />
+                                    Required Test Data
+                                </Label>
+                                <div className="bg-primary/5 border-2 border-primary/10 p-4 rounded-xl flex items-center justify-between group">
+                                    <code className="text-primary font-black tracking-tighter text-lg">{currentStep.test_data}</code>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => navigator.clipboard.writeText(currentStep.test_data!)}
+                                    >
+                                        <Copy className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep.media_url && (
+                             <div className="space-y-3">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                                    <PlayCircle className="h-3 w-3" />
+                                    Reference Visual Aid
+                                </Label>
+                                <div className="relative aspect-video rounded-xl overflow-hidden border-2 bg-black shadow-lg">
+                                    {currentStep.media_url.match(/\.(mp4|webm)$/) ? (
+                                        <video src={currentStep.media_url} controls className="w-full h-full object-contain" />
+                                    ) : (
+                                        <img src={currentStep.media_url} alt="Step Aid" className="w-full h-full object-contain" />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="space-y-4">
                         <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Verification Result</Label>

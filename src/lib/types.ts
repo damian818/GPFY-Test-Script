@@ -13,6 +13,8 @@ export type TestScriptStep = {
   instruction: string;
   media_url?: string;
   notes?: string;
+  test_data?: string;
+  linked_step_id?: string;
   order_index: number;
 };
 
@@ -24,6 +26,10 @@ export type TestExecution = {
   feedback?: string;
   status: 'in_progress' | 'completed';
   created_at: string;
+  completed_at?: string;
+  total_steps?: number;
+  passed_steps?: number;
+  failed_steps?: number;
 };
 
 export type TestExecutionStep = {

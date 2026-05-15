@@ -4,6 +4,7 @@ CREATE TABLE test_scripts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   description text,
+  category text DEFAULT 'General',
   created_at timestamp with time zone DEFAULT now()
 );
 
@@ -14,6 +15,8 @@ CREATE TABLE test_script_steps (
   instruction text NOT NULL,
   media_url text,
   notes text,
+  test_data text,
+  linked_step_id uuid,
   order_index int NOT NULL
 );
 
@@ -24,7 +27,11 @@ CREATE TABLE test_executions (
   rating int,
   feedback text,
   status text NOT NULL CHECK (status IN ('in_progress', 'completed')),
-  created_at timestamp with time zone DEFAULT now()
+  total_steps int,
+  passed_steps int,
+  failed_steps int,
+  created_at timestamp with time zone DEFAULT now(),
+  completed_at timestamp with time zone
 );
 
 CREATE TABLE test_execution_steps (
