@@ -108,6 +108,7 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
             });
           }
           const step = {
+            section: getVal(row, 'Category', 'Section', 'Module') || 'General',
             instruction: getVal(row, 'Step Instruction', 'Instruction'),
             notes: getVal(row, 'Expected Outcome', 'Expected Result', 'Notes'),
             test_data: getVal(row, 'Test Data'),
