@@ -163,6 +163,13 @@ class MockStore {
     return Promise.resolve();
   }
 
+  deleteScript(id: string) {
+    this.scripts = this.scripts.filter(s => s.id !== id);
+    this.steps = this.steps.filter(s => s.script_id !== id);
+    this.executions = this.executions.filter(e => e.script_id !== id);
+    return Promise.resolve();
+  }
+
   createExecution(execution: Omit<TestExecution, 'id' | 'created_at'>) {
     const newExecution: TestExecution = {
       ...execution,

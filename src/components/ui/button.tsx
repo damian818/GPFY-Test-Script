@@ -44,12 +44,14 @@ const buttonVariants = cva(
 const Button = React.forwardRef<
   HTMLButtonElement,
   ButtonPrimitive.Props & VariantProps<typeof buttonVariants>
->(({ className, variant, size, ...props }, ref) => {
+>(({ className, variant, size, render, ...props }, ref) => {
   return (
     <ButtonPrimitive
       ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      render={render}
+      nativeButton={render ? false : true}
       {...props}
     />
   )

@@ -58,6 +58,17 @@ export const api = {
     if (error) throw new Error(error.message);
   },
 
+  async deleteScript(id: string): Promise<void> {
+    if (!supabase) return mockStore.deleteScript(id);
+    
+    // Explicitly delete children first
+    await supabase.from('test_script_steps').delete().eq('script_id', id);
+    await supabase.from('test_executions').delete().eq('script_id', id);
+
+    const { error } = await supabase.from('test_scripts').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
   async createExecution(execution: Omit<TestExecution, 'id' | 'created_at'>): Promise<TestExecution> {
     if (!supabase) return mockStore.createExecution(execution);
     const { data, error } = await supabase.from('test_executions').insert(execution).select().single();

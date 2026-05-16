@@ -78,6 +78,7 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
         const scriptsMap = new Map<string, { description: string, category: string, steps: any[] }>();
         
         rows.forEach(row => {
+          console.log('Processing row:', row);
           const title = row['Script Title'] || row['Title'] || 'Untitled Script';
           if (!scriptsMap.has(title)) {
             scriptsMap.set(title, {
@@ -86,13 +87,18 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
               steps: []
             });
           }
-          scriptsMap.get(title)?.steps.push({
+          const step = {
             instruction: row['Step Instruction'] || row['Instruction'] || '',
             notes: row['Expected Outcome'] || row['Expected Result'] || row['Notes'] || '',
             test_data: row['Test Data'] || '',
-            order_index: parseInt(row['Order Index']) || scriptsMap.get(title)?.steps.length || 0
-          });
+            order_index: parseInt(row['Order Index']) || scriptsMap.get(title)!.steps.length || 0
+          };
+          if (step.instruction) {
+             scriptsMap.get(title)?.steps.push(step);
+          }
         });
+
+        console.log('Parsed Scripts Map:', scriptsMap);
 
         let current = 0;
         for (const [title, data] of Array.from(scriptsMap.entries())) {
@@ -453,6 +459,19 @@ function Dashboard() {
                               <Button render={<Link to={`/execute/${script.id}`} />} size="sm" className="flex-1">
                                   <Play className="mr-2 h-3.5 w-3.5 fill-current" />
                                   Test Run
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
+                                  if (confirm('Are you sure you want to delete this script?')) {
+                                      try {
+                                        await api.deleteScript(script.id);
+                                        loadData();
+                                      } catch (e) {
+                                          console.error('Delete failed', e);
+                                          alert('Failed to delete: ' + e);
+                                      }
+                                  }
+                              }}>
+                                  <Trash2 className="h-4 w-4" />
                               </Button>
                           </CardFooter>
                         </Card>
