@@ -212,6 +212,7 @@ function Dashboard() {
   }, []);
 
   const loadData = async () => {
+    console.log('Loading dashboard data...');
     setLoading(true);
     setDbError(null);
     try {
@@ -219,6 +220,7 @@ function Dashboard() {
         api.getScripts(),
         api.getExecutions()
       ]);
+      console.log('Data loaded:', { scriptsCount: scriptsData.length });
       setScripts(scriptsData);
       setExecutions(executionsData);
     } catch (e: any) {

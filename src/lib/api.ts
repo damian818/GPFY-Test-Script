@@ -61,12 +61,21 @@ export const api = {
   async deleteScript(id: string): Promise<void> {
     if (!supabase) return mockStore.deleteScript(id);
     
+    console.log('Attempting to delete script:', id);
+
     // Explicitly delete children first
-    await supabase.from('test_script_steps').delete().eq('script_id', id);
-    await supabase.from('test_executions').delete().eq('script_id', id);
+    const { error: stepsError } = await supabase.from('test_script_steps').delete().eq('script_id', id);
+    if (stepsError) console.error('Error deleting steps:', stepsError);
+
+    const { error: execsError } = await supabase.from('test_executions').delete().eq('script_id', id);
+    if (execsError) console.error('Error deleting executions:', execsError);
 
     const { error } = await supabase.from('test_scripts').delete().eq('id', id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('Error deleting script:', error);
+      throw new Error(error.message);
+    }
+    console.log('Script deleted successfully');
   },
 
   async createExecution(execution: Omit<TestExecution, 'id' | 'created_at'>): Promise<TestExecution> {
