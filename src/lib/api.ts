@@ -70,12 +70,12 @@ export const api = {
     const { error: execsError } = await supabase.from('test_executions').delete().eq('script_id', id);
     if (execsError) console.error('Error deleting executions:', execsError);
 
-    const { error } = await supabase.from('test_scripts').delete().eq('id', id);
+    const { data: deleted, error } = await supabase.from('test_scripts').delete().eq('id', id).select();
     if (error) {
       console.error('Error deleting script:', error);
       throw new Error(error.message);
     }
-    console.log('Script deleted successfully');
+    console.log('Script deleted successfully. Deleted rows:', deleted);
   },
 
   async createExecution(execution: Omit<TestExecution, 'id' | 'created_at'>): Promise<TestExecution> {
