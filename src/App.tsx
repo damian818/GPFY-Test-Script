@@ -56,6 +56,23 @@ import { Textarea } from './components/ui/textarea.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select.tsx';
 
+export type Role = 'Gappify Admin' | 'Customer';
+
+type UserContextType = {
+  role: Role;
+  email: string;
+  setRole: (role: Role) => void;
+  setEmail: (email: string) => void;
+};
+
+export const UserContext = React.createContext<UserContextType | null>(null);
+
+export const useUser = () => {
+  const ctx = React.useContext(UserContext);
+  if (!ctx) throw new Error('useUser must be used within UserProvider');
+  return ctx;
+};
+
 // --- Bulk Upload Component ---
 function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -214,6 +231,7 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
 
 // --- Dashboard View ---
 function Dashboard() {
+  const { role, email } = useUser();
   const [scripts, setScripts] = useState<TestScript[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -253,6 +271,29 @@ function Dashboard() {
     setLoading(false);
   };
 
+  const isAdmin = role === 'Gappify Admin';
+
+  const visibleScripts = role === 'Customer' 
+    ? scripts.filter(s => s.assignee_email === email)
+    : scripts;
+
+  const visibleExecutions = isAdmin 
+    ? executions 
+    : executions.filter(e => e.tester_email === email);
+
+  const categories = ['All', ...Array.from(new Set(visibleScripts.map(s => s.category || 'General')))];
+  const filteredScripts = selectedCategory === 'All' 
+    ? visibleScripts 
+    : visibleScripts.filter(s => (s.category || 'General') === selectedCategory);
+
+  const toggleSelectAll = () => {
+    if (selectedScripts.size === filteredScripts.length) {
+      setSelectedScripts(new Set());
+    } else {
+      setSelectedScripts(new Set(filteredScripts.map(s => s.id)));
+    }
+  };
+
   const handleCreate = async () => {
     if (!newTitle) return;
     try {
@@ -265,19 +306,6 @@ function Dashboard() {
       navigate(`/admin/scripts/${script.id}`);
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const categories = ['All', ...Array.from(new Set(scripts.map(s => s.category || 'General')))];
-  const filteredScripts = selectedCategory === 'All' 
-    ? scripts 
-    : scripts.filter(s => (s.category || 'General') === selectedCategory);
-
-  const toggleSelectAll = () => {
-    if (selectedScripts.size === filteredScripts.length) {
-      setSelectedScripts(new Set());
-    } else {
-      setSelectedScripts(new Set(filteredScripts.map(s => s.id)));
     }
   };
 
@@ -352,58 +380,62 @@ function Dashboard() {
                 </button>
             </div>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger render={<Button className="shadow-lg shadow-primary/20" />}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Script
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Test Script</DialogTitle>
-                  <DialogDescription>
-                    Define a new script for user acceptance testing.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Title</Label>
-                    <Input 
-                      id="title" 
-                      placeholder="e.g. Accrual Manager UAT" 
-                      value={newTitle} 
-                      onChange={e => setNewTitle(e.target.value)} 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <div className="relative group">
+            {isAdmin && (
+              <>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger render={<Button className="shadow-lg shadow-primary/20" />}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Create Script
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Test Script</DialogTitle>
+                      <DialogDescription>
+                        Define a new script for user acceptance testing.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">Title</Label>
                         <Input 
-                            id="category" 
-                            placeholder="e.g. Security, Training, Core" 
-                            value={newCategory} 
-                            onChange={e => setNewCategory(e.target.value)} 
+                          id="title" 
+                          placeholder="e.g. Accrual Manager UAT" 
+                          value={newTitle} 
+                          onChange={e => setNewTitle(e.target.value)} 
                         />
-                        <Tag className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground/40" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <div className="relative group">
+                            <Input 
+                                id="category" 
+                                placeholder="e.g. Security, Training, Core" 
+                                value={newCategory} 
+                                onChange={e => setNewCategory(e.target.value)} 
+                            />
+                            <Tag className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground/40" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea 
+                          id="description" 
+                          placeholder="Brief description of the goals..." 
+                          value={newDesc} 
+                          onChange={e => setNewDesc(e.target.value)} 
+                          rows={4}
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea 
-                      id="description" 
-                      placeholder="Brief description of the goals..." 
-                      value={newDesc} 
-                      onChange={e => setNewDesc(e.target.value)} 
-                      rows={4}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreate} disabled={!newTitle}>Create & Add Steps</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <BulkUploadDialog onComplete={loadData} />
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={handleCreate} disabled={!newTitle}>Create & Add Steps</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <BulkUploadDialog onComplete={loadData} />
+              </>
+            )}
         </div>
       </div>
 
@@ -472,22 +504,26 @@ function Dashboard() {
                     ))}
                 </div>
                 <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground font-medium px-2">
-                    {selectedScripts.size > 0 && (
-                        <Button variant="ghost" size="sm" className="h-6 text-destructive hover:bg-destructive/10 px-2" onClick={deleteSelected}>
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Delete ({selectedScripts.size})
-                        </Button>
+                    {isAdmin && (
+                      <>
+                        {selectedScripts.size > 0 && (
+                            <Button variant="ghost" size="sm" className="h-6 text-destructive hover:bg-destructive/10 px-2" onClick={deleteSelected}>
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete ({selectedScripts.size})
+                            </Button>
+                        )}
+                        <label className="flex items-center gap-1.5 cursor-pointer hover:text-foreground">
+                            <input 
+                                type="checkbox" 
+                                className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-3.5 h-3.5"
+                                checked={selectedScripts.size === filteredScripts.length && filteredScripts.length > 0}
+                                onChange={toggleSelectAll}
+                            />
+                            Select All
+                        </label>
+                        <div className="h-3 w-px bg-border mx-1"></div>
+                      </>
                     )}
-                    <label className="flex items-center gap-1.5 cursor-pointer hover:text-foreground">
-                        <input 
-                            type="checkbox" 
-                            className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-3.5 h-3.5"
-                            checked={selectedScripts.size === filteredScripts.length && filteredScripts.length > 0}
-                            onChange={toggleSelectAll}
-                        />
-                        Select All
-                    </label>
-                    <div className="h-3 w-px bg-border mx-1"></div>
                     <Filter className="h-3 w-3" />
                     <span>{filteredScripts.length} Results</span>
                 </div>
@@ -518,14 +554,16 @@ function Dashboard() {
                         transition={{ delay: idx * 0.05 }}
                       >
                         <Card className={`flex flex-col h-full hover:shadow-xl transition-all duration-300 border-l-4 group relative ${selectedScripts.has(script.id) ? 'border-primary shadow-md bg-primary/5' : 'border-l-primary/30'}`}>
-                          <div className="absolute top-3 right-3 z-10">
-                              <input 
-                                  type="checkbox" 
-                                  className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-                                  checked={selectedScripts.has(script.id)}
-                                  onChange={() => toggleSelect(script.id)}
-                              />
-                          </div>
+                          {isAdmin && (
+                            <div className="absolute top-3 right-3 z-10">
+                                <input 
+                                    type="checkbox" 
+                                    className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                                    checked={selectedScripts.has(script.id)}
+                                    onChange={() => toggleSelect(script.id)}
+                                />
+                            </div>
+                          )}
                           <CardHeader className="pb-3 pr-10">
                               <div className="flex justify-between items-start mb-1">
                                   <div className="px-2 py-0.5 rounded bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/10">
@@ -540,28 +578,32 @@ function Dashboard() {
                               Created: {new Date(script.created_at).toLocaleDateString()}
                           </CardContent>
                           <CardFooter className="gap-2 border-t pt-4 bg-muted/20">
-                              <Button render={<Link to={`/admin/scripts/${script.id}`} />} variant="outline" size="sm" className="flex-1 border-primary/20 hover:bg-primary/5">
-                                  <Settings2 className="mr-2 h-3.5 w-3.5" />
-                                  Schema
-                              </Button>
-                              <Button render={<Link to={`/execute/${script.id}`} />} size="sm" className="flex-1">
+                              {isAdmin && (
+                                <Button render={<Link to={`/admin/scripts/${script.id}`} />} variant="outline" size="sm" className="flex-1 border-primary/20 hover:bg-primary/5">
+                                    <Settings2 className="mr-2 h-3.5 w-3.5" />
+                                    Schema
+                                </Button>
+                              )}
+                              <Button render={<Link to={`/execute/${script.id}`} />} size="sm" className="flex-1 shadow-md shadow-primary/20">
                                   <Play className="mr-2 h-3.5 w-3.5 fill-current" />
                                   Test Run
                               </Button>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
-                                  if (confirm('Are you sure you want to delete this script?')) {
-                                      console.log('Attempting to delete script object:', script);
-                                      try {
-                                        await api.deleteScript(script.id);
-                                        loadData();
-                                      } catch (e) {
-                                          console.error('Delete failed', e);
-                                          alert('Failed to delete: ' + e);
-                                      }
-                                  }
-                              }}>
-                                  <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {isAdmin && (
+                                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
+                                    if (confirm('Are you sure you want to delete this script?')) {
+                                        console.log('Attempting to delete script object:', script);
+                                        try {
+                                          await api.deleteScript(script.id);
+                                          loadData();
+                                        } catch (e) {
+                                            console.error('Delete failed', e);
+                                            alert('Failed to delete: ' + e);
+                                        }
+                                    }
+                                }}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                           </CardFooter>
                         </Card>
                       </motion.div>
@@ -581,7 +623,7 @@ function Dashboard() {
                     <div className="space-y-3">
                         {[1,2,3].map(i => <div key={i} className="h-16 w-full bg-muted animate-pulse rounded-lg" />)}
                     </div>
-                ) : executions.length === 0 ? (
+                ) : visibleExecutions.length === 0 ? (
                     <div className="text-center py-20 border rounded-xl border-dashed bg-card/50 flex flex-col items-center">
                       <div className="bg-primary/10 p-4 rounded-full mb-4">
                         <Clock className="h-8 w-8 text-primary" />
@@ -603,7 +645,7 @@ function Dashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-muted/30">
-                                    {executions.map(exe => (
+                                    {visibleExecutions.map(exe => (
                                         <tr key={exe.id} className="hover:bg-muted/10 transition-colors">
                                             <td className="py-4 px-6">
                                               <div className="font-bold">{(exe as any).test_scripts?.title || 'Unknown Script'}</div>
@@ -649,7 +691,7 @@ function Dashboard() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
             >
-              <AnalyticsDashboard executions={executions} />
+              <AnalyticsDashboard executions={visibleExecutions} />
             </motion.div>
         )}
       </AnimatePresence>
@@ -1006,7 +1048,7 @@ function ReportView() {
           </div>
         </div>
         
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-4">
           <div className="bg-muted/50 p-3 rounded-xl border border-primary/5 flex gap-4 min-w-[240px]">
             <div className="flex-1 text-center">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Pass</div>
@@ -1022,6 +1064,24 @@ function ReportView() {
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Completion</div>
               <div className="text-xl font-bold">{Math.round((stats.passed + stats.failed) / stats.total * 100)}%</div>
             </div>
+          </div>
+          <div className="self-end pb-1">
+             <Button 
+                onClick={() => {
+                  const subject = encodeURIComponent(`UAT Results: ${execution.test_scripts.title}`);
+                  const body = encodeURIComponent(
+                    `Hello Gappify Team,\n\n` +
+                    `Here are the execution results for "${execution.test_scripts.title}".\n` +
+                    `Tester: ${execution.tester_email}\n` +
+                    `Link to review: ${window.location.origin}/report/${executionId}\n\n` +
+                    `Stats: ${stats.passed} Passed, ${stats.failed} Failed, ${stats.skipped} Skipped.\n\n` +
+                    `Additional feedback:\n[Write any feedback here]`
+                  );
+                  window.location.href = `mailto:support@gappify.com?subject=${subject}&body=${body}`;
+                }}
+             >
+                <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
+             </Button>
           </div>
         </div>
       </div>
@@ -1137,7 +1197,7 @@ function ScriptEditor() {
   const [newLinkedStepId, setNewLinkedStepId] = useState<string>('none');
   const [stepMediaUploading, setStepMediaUploading] = useState(false);
 
-  const [editScript, setEditScript] = useState<{ title: string, description: string, category: string } | null>(null);
+  const [editScript, setEditScript] = useState<{ title: string, description: string, category: string, assignee_email: string } | null>(null);
   const [savingScript, setSavingScript] = useState(false);
 
   useEffect(() => {
@@ -1151,7 +1211,7 @@ function ScriptEditor() {
       const st = await api.getScriptSteps(scriptId!);
       setScript(s);
       setSteps(st);
-      if (s) setEditScript({ title: s.title, description: s.description, category: s.category || 'General' });
+      if (s) setEditScript({ title: s.title, description: s.description, category: s.category || 'General', assignee_email: s.assignee_email || '' });
     } catch (e) {
       console.error(e);
     }
@@ -1266,7 +1326,7 @@ function ScriptEditor() {
               </CardTitle>
           </CardHeader>
           <CardContent className="pt-6 grid gap-4 bg-card">
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Title</Label>
                       <Input 
@@ -1280,6 +1340,15 @@ function ScriptEditor() {
                         value={editScript?.category} 
                         onChange={e => setEditScript(prev => prev ? { ...prev, category: e.target.value } : null)} 
                         placeholder="e.g. Training, Security"
+                      />
+                  </div>
+                  <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Assignee Email</Label>
+                      <Input 
+                        value={editScript?.assignee_email || ''} 
+                        type="email"
+                        onChange={e => setEditScript(prev => prev ? { ...prev, assignee_email: e.target.value } : null)} 
+                        placeholder="Customer email"
                       />
                   </div>
               </div>
@@ -1549,6 +1618,7 @@ function ScriptEditor() {
 
 // --- Execution View ---
 function ExecutionView() {
+  const { email } = useUser();
   const { scriptId } = useParams();
   const [searchParams] = useSearchParams();
   const executionIdParam = searchParams.get('executionId');
@@ -1567,7 +1637,7 @@ function ExecutionView() {
 
   useEffect(() => {
     if (scriptId) initializeExecution();
-  }, [scriptId, executionIdParam]);
+  }, [scriptId, executionIdParam, email]);
 
   const initializeExecution = async () => {
     setLoading(true);
@@ -1590,7 +1660,7 @@ function ExecutionView() {
         const exe = await api.createExecution({
           script_id: scriptId!,
           status: 'in_progress',
-          tester_email: 'damian@gappify.com'
+          tester_email: email
         });
         setExecution(exe);
       }
@@ -1885,6 +1955,8 @@ function ExecutionView() {
 // --- Main App Component ---
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [role, setRole] = useState<Role>('Gappify Admin');
+  const [email, setEmail] = useState<string>('damian@gappify.com');
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -1898,36 +1970,61 @@ export default function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-white">
-        <header className="border-b px-6 py-4 flex items-center justify-between bg-card text-card-foreground sticky top-0 z-50">
-          <Link to="/" className="flex items-center space-x-2 group">
-            <div className="bg-primary text-primary-foreground p-1.5 rounded-lg transition-transform group-hover:scale-110 duration-300">
-              <span className="font-black tracking-wider text-xl uppercase">GP</span>
-            </div>
-            <div className="flex flex-col -space-y-1">
-              <span className="font-extrabold text-lg tracking-tight">QA INFRA</span>
-              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest pl-1">Enterprise Analytics</span>
-            </div>
-          </Link>
-          
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full hover:bg-muted">
-              {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-            </Button>
-          </div>
-        </header>
+  const contextValue = { role, email, setRole, setEmail };
 
-        <main className="flex-1 overflow-hidden flex flex-col">
-          <Routes>
-            <Route path="/" element={<div className="p-6 md:p-10 max-w-7xl mx-auto w-full"><Dashboard /></div>} />
-            <Route path="/admin/scripts/:scriptId" element={<ScriptEditor />} />
-            <Route path="/execute/:scriptId" element={<ExecutionView />} />
-            <Route path="/report/:executionId" element={<ReportView />} />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+  return (
+    <UserContext.Provider value={contextValue}>
+      <BrowserRouter>
+        <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-white">
+          <header className="border-b px-6 py-4 flex items-center justify-between bg-card text-card-foreground sticky top-0 z-50">
+            <Link to="/" className="flex items-center space-x-2 group">
+              <div className="bg-primary text-primary-foreground p-1.5 rounded-lg transition-transform group-hover:scale-110 duration-300">
+                <span className="font-black tracking-wider text-xl uppercase">GP</span>
+              </div>
+              <div className="flex flex-col -space-y-1">
+                <span className="font-extrabold text-lg tracking-tight">QA INFRA</span>
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest pl-1">Enterprise Analytics</span>
+              </div>
+            </Link>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-2 border bg-muted/30 rounded-full px-2 py-1">
+                <User className="h-4 w-4 text-muted-foreground ml-2" />
+                {role === 'Customer' && (
+                  <Input 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="h-7 text-xs w-[180px] border-none shadow-none bg-transparent focus-visible:ring-0 px-1"
+                  />
+                )}
+                <Select value={role} onValueChange={(val: Role) => setRole(val)}>
+                  <SelectTrigger className="w-[160px] h-8 border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-wider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Gappify Admin">Admin View</SelectItem>
+                    <SelectItem value="Customer">Customer View</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full hover:bg-muted">
+                {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              </Button>
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-hidden flex flex-col">
+            <Routes>
+              <Route path="/" element={<div className="p-6 md:p-10 max-w-7xl mx-auto w-full"><Dashboard /></div>} />
+              <Route path="/admin/scripts/:scriptId" element={<ScriptEditor />} />
+              <Route path="/execute/:scriptId" element={<ExecutionView />} />
+              <Route path="/report/:executionId" element={<ReportView />} />
+            </Routes>
+          </main>
+        </div>
+      </BrowserRouter>
+    </UserContext.Provider>
   );
 }

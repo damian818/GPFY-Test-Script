@@ -3,6 +3,7 @@ export type TestScript = {
   title: string;
   description: string;
   category?: string;
+  assignee_email?: string;
   created_at: string;
 };
 
