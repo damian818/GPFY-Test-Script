@@ -72,26 +72,46 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
       skipEmptyLines: true,
       complete: async (results) => {
         const rows = results.data as any[];
-        setProgress({ current: 0, total: rows.length });
+        
+        // Clean keys (remove BOM and trim)
+        const cleanRows = rows.map(r => {
+           const cleaned: Record<string, any> = {};
+           for (const [k, v] of Object.entries(r)) {
+              const cleanKey = k.replace(/^\uFEFF/, '').trim();
+              cleaned[cleanKey] = v;
+           }
+           return cleaned;
+        });
+
+        setProgress({ current: 0, total: cleanRows.length });
         
         // Group by title
         const scriptsMap = new Map<string, { description: string, category: string, steps: any[] }>();
         
-        rows.forEach(row => {
-          console.log('Processing row:', row);
-          const title = row['Script Title'] || row['Title'] || 'Untitled Script';
+        const getVal = (row: any, ...keys: string[]) => {
+           for (const k of keys) {
+              if (row[k] !== undefined) return row[k];
+              const found = Object.keys(row).find(x => x.toLowerCase() === k.toLowerCase());
+              if (found) return row[found];
+           }
+           return '';
+        };
+
+        cleanRows.forEach(row => {
+          console.log('Processing clean row:', row);
+          const title = getVal(row, 'Script Title', 'Title') || 'Untitled Script';
           if (!scriptsMap.has(title)) {
             scriptsMap.set(title, {
-              description: row['Script Description'] || row['Description'] || '',
-              category: row['Category'] || 'General',
+              description: getVal(row, 'Script Description', 'Description'),
+              category: getVal(row, 'Category') || 'General',
               steps: []
             });
           }
           const step = {
-            instruction: row['Step Instruction'] || row['Instruction'] || '',
-            notes: row['Expected Outcome'] || row['Expected Result'] || row['Notes'] || '',
-            test_data: row['Test Data'] || '',
-            order_index: parseInt(row['Order Index']) || scriptsMap.get(title)!.steps.length || 0
+            instruction: getVal(row, 'Step Instruction', 'Instruction'),
+            notes: getVal(row, 'Expected Outcome', 'Expected Result', 'Notes'),
+            test_data: getVal(row, 'Test Data'),
+            order_index: parseInt(getVal(row, 'Order Index')) || scriptsMap.get(title)!.steps.length || 0
           };
           if (step.instruction) {
              scriptsMap.get(title)?.steps.push(step);
@@ -464,6 +484,7 @@ function Dashboard() {
                               </Button>
                               <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
                                   if (confirm('Are you sure you want to delete this script?')) {
+                                      console.log('Attempting to delete script object:', script);
                                       try {
                                         await api.deleteScript(script.id);
                                         loadData();

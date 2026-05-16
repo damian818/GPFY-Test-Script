@@ -75,6 +75,10 @@ export const api = {
       console.error('Error deleting script:', error);
       throw new Error(error.message);
     }
+    
+    if (deleted && deleted.length === 0) {
+      throw new Error('Could not delete script. Please check if you have delete permissions (Supabase Row Level Security).');
+    }
     console.log('Script deleted successfully. Deleted rows:', deleted);
   },
 
