@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
+import { cn } from "../../lib/utils.ts"
 
 const Label = React.forwardRef<HTMLLabelElement, React.ComponentProps<"label">>(
   ({ className, ...props }, ref) => {

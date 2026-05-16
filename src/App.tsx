@@ -43,18 +43,18 @@ import {
   GitBranch,
   GitPullRequest
 } from 'lucide-react';
-import { api } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
-import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from '@/lib/types';
+import { api } from './lib/api.ts';
+import { supabase } from './lib/supabase.ts';
+import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './lib/types.ts';
 
 // UI Components
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from './components/ui/button.tsx';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card.tsx';
+import { Input } from './components/ui/input.tsx';
+import { Label } from './components/ui/label.tsx';
+import { Textarea } from './components/ui/textarea.tsx';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog.tsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select.tsx';
 
 // --- Bulk Upload Component ---
 function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
