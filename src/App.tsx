@@ -226,6 +226,7 @@ function Dashboard() {
   const [executions, setExecutions] = useState<TestExecution[]>([]);
   const [activeTab, setActiveTab] = useState<'scripts' | 'history' | 'analytics'>('scripts');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedScripts, setSelectedScripts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadData();
@@ -243,6 +244,7 @@ function Dashboard() {
       console.log('Data loaded:', { scriptsCount: scriptsData.length });
       setScripts(scriptsData);
       setExecutions(executionsData);
+      setSelectedScripts(new Set());
     } catch (e: any) {
       console.error(e);
       setDbError(e.message || 'Failed to connect to database');
@@ -270,6 +272,45 @@ function Dashboard() {
     ? scripts 
     : scripts.filter(s => (s.category || 'General') === selectedCategory);
 
+  const toggleSelectAll = () => {
+    if (selectedScripts.size === filteredScripts.length) {
+      setSelectedScripts(new Set());
+    } else {
+      setSelectedScripts(new Set(filteredScripts.map(s => s.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedScripts);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedScripts(newSelected);
+  };
+
+  const deleteSelected = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedScripts.size} script(s)?`)) return;
+    
+    setLoading(true);
+    let errorCount = 0;
+    for (const id of Array.from(selectedScripts)) {
+      try {
+        await api.deleteScript(id);
+      } catch (e) {
+        console.error('Delete failed for', id, e);
+        errorCount++;
+      }
+    }
+    
+    if (errorCount > 0) {
+      alert(`Failed to delete ${errorCount} script(s). Check RLS permissions.`);
+    }
+    
+    await loadData();
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -279,7 +320,7 @@ function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl font-bold tracking-tight">Gappify QA</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Gappify Testing</h1>
             <div className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border flex items-center gap-1 ${supabase ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'}`}>
               <Database className="h-3 w-3" />
               {supabase ? 'Live: Supabase' : 'Demo: Mock Storage'}
@@ -430,6 +471,22 @@ function Dashboard() {
                     ))}
                 </div>
                 <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground font-medium px-2">
+                    {selectedScripts.size > 0 && (
+                        <Button variant="ghost" size="sm" className="h-6 text-destructive hover:bg-destructive/10 px-2" onClick={deleteSelected}>
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete ({selectedScripts.size})
+                        </Button>
+                    )}
+                    <label className="flex items-center gap-1.5 cursor-pointer hover:text-foreground">
+                        <input 
+                            type="checkbox" 
+                            className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-3.5 h-3.5"
+                            checked={selectedScripts.size === filteredScripts.length && filteredScripts.length > 0}
+                            onChange={toggleSelectAll}
+                        />
+                        Select All
+                    </label>
+                    <div className="h-3 w-px bg-border mx-1"></div>
                     <Filter className="h-3 w-3" />
                     <span>{filteredScripts.length} Results</span>
                 </div>
@@ -459,8 +516,16 @@ function Dashboard() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.05 }}
                       >
-                        <Card className="flex flex-col h-full hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/30 group">
-                          <CardHeader className="pb-3">
+                        <Card className={`flex flex-col h-full hover:shadow-xl transition-all duration-300 border-l-4 group relative ${selectedScripts.has(script.id) ? 'border-primary shadow-md bg-primary/5' : 'border-l-primary/30'}`}>
+                          <div className="absolute top-3 right-3 z-10">
+                              <input 
+                                  type="checkbox" 
+                                  className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                                  checked={selectedScripts.has(script.id)}
+                                  onChange={() => toggleSelect(script.id)}
+                              />
+                          </div>
+                          <CardHeader className="pb-3 pr-10">
                               <div className="flex justify-between items-start mb-1">
                                   <div className="px-2 py-0.5 rounded bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/10">
                                       {script.category || 'General'}
