@@ -249,6 +249,8 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
     isDragging,
   } = useSortable({ id: script.id });
 
+  const canManage = isAdmin || (email && script.creator_email === email) || (email && script.tenant_domain && email.split('@')[1] === script.tenant_domain);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -266,7 +268,7 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
         className="h-full"
       >
         <Card className={`flex flex-col h-full hover:shadow-xl transition-all duration-300 border-l-4 group relative ${selectedScripts.has(script.id) ? 'border-primary shadow-md bg-primary/5' : 'border-l-primary/30'} ${isDragging ? 'shadow-2xl scale-105' : ''}`}>
-          {isAdmin && (
+          {canManage && (
             <div className="absolute top-3 right-3 z-10">
                 <input 
                     type="checkbox" 
@@ -276,7 +278,7 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                 />
             </div>
           )}
-          {isAdmin && (
+          {canManage && (
             <div {...attributes} {...listeners} className="absolute top-2 right-8 p-1.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-50 hover:opacity-100 transition-opacity">
                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-grip-horizontal"><circle cx="12" cy="9" r="1"/><circle cx="19" cy="9" r="1"/><circle cx="5" cy="9" r="1"/><circle cx="12" cy="15" r="1"/><circle cx="19" cy="15" r="1"/><circle cx="5" cy="15" r="1"/></svg>
             </div>
@@ -302,7 +304,7 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
               Created: {new Date(script.created_at).toLocaleDateString()}
           </CardContent>
           <CardFooter className="gap-2 border-t pt-4 bg-muted/20 mt-auto">
-              {isAdmin && (
+              {canManage && (
                 <Button render={<Link to={`/admin/scripts/${script.id}`} />} variant="outline" size="sm" className="flex-1 border-primary/20 hover:bg-primary/5">
                     <Settings2 className="mr-2 h-3.5 w-3.5" />
                     Schema
@@ -312,7 +314,7 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                   <Play className="mr-2 h-3.5 w-3.5 fill-current" />
                   Test Run
               </Button>
-              {isAdmin && (
+              {canManage && (
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -337,7 +339,7 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                   <Mail className="h-4 w-4" />
                 </Button>
               )}
-              {isAdmin && (
+              {canManage && (
                 <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
                     if (confirm('Are you sure you want to delete this script?')) {
                         console.log('Attempting to delete script object:', script);
@@ -526,9 +528,24 @@ function Dashboard() {
   const isAdmin = role === 'Gappify Admin';
   const userDomain = email ? email.split('@')[1] : '';
 
-  const visibleScripts = role === 'Customer' 
-    ? scripts.filter(s => !s.tenant_domain || s.tenant_domain === userDomain)
-    : scripts;
+  const visibleScripts = isAdmin
+    ? scripts
+    : scripts.filter(s => {
+        // Gappify domain users see everything (handled by isAdmin check above usually, but for safety)
+        if (userDomain === 'gappify.com') return true;
+        
+        // Match by tenant domain
+        if (s.tenant_domain === userDomain) return true;
+        
+        // Match by creator domain
+        if (s.creator_email) {
+          const creatorDomain = s.creator_email.split('@')[1];
+          if (creatorDomain === userDomain) return true;
+        }
+
+        // Default: only public scripts (if any have no domain, but usually they should have one)
+        return !s.tenant_domain && !s.creator_email;
+      });
 
   const visibleExecutions = isAdmin 
     ? executions 
@@ -556,6 +573,7 @@ function Dashboard() {
         description: newDesc,
         category: newCategory || 'General',
         tenant_domain: isAdmin ? '' : userDomain,
+        creator_email: email || undefined,
         order_index: highestOrder + 1
       });
       setIsDialogOpen(false);
@@ -698,7 +716,7 @@ function Dashboard() {
                 )}
             </div>
 
-            {isAdmin && (
+            {role !== 'Guest' && (
               <>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger render={<Button className="shadow-lg shadow-primary/20" />}>
@@ -1046,6 +1064,20 @@ function AnalyticsDashboard({ executions }: { executions: TestExecution[] }) {
     ? (completedStats.reduce((acc, curr) => acc + (new Date(curr.completed_at!).getTime() - new Date(curr.created_at).getTime()), 0) / completedStats.length / 1000 / 60).toFixed(1)
     : '0';
 
+  // 4. Domain Breakdown
+  const domainStats = executions.reduce((acc, exe) => {
+    const domain = exe.tester_email.split('@')[1] || 'unknown';
+    if (!acc[domain]) acc[domain] = { domain, pass: 0, fail: 0, total: 0 };
+    acc[domain].total++;
+    if (exe.status === 'completed') acc[domain].pass++;
+    else acc[domain].fail++;
+    return acc;
+  }, {} as Record<string, any>);
+
+  const domainData = Object.values(domainStats)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5); // Top 5 domains
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1251,6 +1283,42 @@ function AnalyticsDashboard({ executions }: { executions: TestExecution[] }) {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="shadow-lg shadow-primary/5 border-primary/5 overflow-hidden">
+        <CardHeader className="bg-muted/10 pb-6 border-b">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <Database className="h-5 w-5 text-indigo-500" />
+            Top Domains & Outcomes
+          </CardTitle>
+          <CardDescription>Volume and success rate by email domain</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {domainData.map((d, i) => (
+              <div key={i} className="bg-muted/30 p-4 rounded-2xl border border-border/50 flex flex-col justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1 truncate" title={d.domain}>
+                    {d.domain}
+                  </div>
+                  <div className="text-2xl font-black">{d.total}</div>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between text-[10px] font-bold">
+                    <span>Pass Rate</span>
+                    <span className="text-green-600">{Math.round((d.pass / d.total) * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-500 transition-all duration-1000" 
+                      style={{ width: `${Math.round((d.pass / d.total) * 100)}%` }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -1263,6 +1331,7 @@ function ReportView() {
   const [execution, setExecution] = useState<(TestExecution & { test_scripts: TestScript }) | null>(null);
   const [exeSteps, setExeSteps] = useState<(TestExecutionStep & { step: TestScriptStep })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allScripts, setAllScripts] = useState<TestScript[]>([]);
 
   useEffect(() => {
     if (executionId) loadReport();
@@ -1271,12 +1340,13 @@ function ReportView() {
   const loadReport = async () => {
     setLoading(true);
     try {
-      const [exe, results, scriptSteps] = await Promise.all([
+      const [exe, results, scripts] = await Promise.all([
         api.getExecution(executionId!),
         api.getExecutionSteps(executionId!),
-        // We need all steps for the script to show the full context
-        null // We'll handle this below
+        api.getScripts()
       ]);
+
+      setAllScripts(scripts);
 
       if (exe) {
         const sSteps = await api.getScriptSteps(exe.script_id);
@@ -1374,6 +1444,35 @@ function ReportView() {
           </div>
         </div>
       </div>
+
+      {allScripts.filter(s => s.id !== execution.script_id).length > 0 && (
+        <Card className="bg-primary/5 border-dashed border-2 border-primary/20 p-8 rounded-3xl text-center space-y-4">
+          <div className="mx-auto bg-primary text-primary-foreground p-3 rounded-full w-12 h-12 flex items-center justify-center">
+            <PlayCircle className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xl font-bold italic tracking-tight">Ready for the next one?</h3>
+            <p className="text-muted-foreground text-sm max-w-sm mx-auto">Session complete. Would you like to proceed with another script in the sequence?</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-4 text-left">
+            {allScripts
+              .filter(s => s.id !== execution.script_id)
+              .sort((a, b) => (a.category === execution.test_scripts.category ? -1 : 1))
+              .slice(0, 3)
+              .map(s => (
+                <Button 
+                  key={s.id} 
+                  variant="outline" 
+                  className="bg-card hover:bg-primary hover:text-white transition-all font-bold flex flex-col items-start gap-1 h-auto py-4 group"
+                  render={<Link to={`/execute/${s.id}`} />}
+                >
+                  <span className="text-[10px] text-muted-foreground group-hover:text-white/70 uppercase tracking-widest">{s.category || 'General'}</span>
+                  <span className="truncate w-full block">{s.title}</span>
+                </Button>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-6">
         <h2 className="text-xl font-bold flex items-center gap-2">
@@ -1499,6 +1598,7 @@ function ReportView() {
           </motion.div>
         ))}
       </div>
+
     </motion.div>
   );
 }
@@ -1523,9 +1623,14 @@ function ScriptEditor() {
   const [editScript, setEditScript] = useState<{ title: string, description: string, category: string, tenant_domain: string } | null>(null);
   const [savingScript, setSavingScript] = useState(false);
 
+  const userDomain = email ? email.split('@')[1] : null;
+  const isGappify = userDomain === 'gappify.com';
+
   useEffect(() => {
     if (scriptId) loadData();
   }, [scriptId]);
+
+  const canEdit = isGappify || (script && script.creator_email === email) || (script && script.tenant_domain && script.tenant_domain === userDomain);
 
   const loadData = async () => {
     setLoading(true);
@@ -1625,6 +1730,23 @@ function ScriptEditor() {
 
   if (loading) return <div className="p-10 text-center">Loading script data...</div>;
   if (!script) return <div className="p-10 text-center">Script not found.</div>;
+
+  if (!canEdit) {
+    return (
+      <div className="p-20 text-center max-w-lg mx-auto">
+        <div className="bg-destructive/10 p-6 rounded-3xl border-2 border-destructive/20 space-y-4">
+          <div className="mx-auto bg-destructive text-white p-3 rounded-full w-12 h-12 flex items-center justify-center">
+            <XCircle className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold uppercase tracking-tight text-destructive">Unauthorized Access</h2>
+            <p className="text-muted-foreground text-sm">You do not have permission to modify this test script. Please contact your administrator or the script creator.</p>
+          </div>
+          <Button render={<Link to="/" />} className="w-full font-bold">Return to Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto py-10 px-6">
@@ -1787,7 +1909,10 @@ function ScriptEditor() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Required Test Data / Inputs</Label>
+                        <div className="flex flex-col">
+                            <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Required Test Data / Inputs</Label>
+                            <span className="text-[8px] text-muted-foreground leading-tight italic">Specific environment data or variables needed for this step</span>
+                        </div>
                         <div className="relative group">
                             <Input 
                                 value={step.test_data || ''} 
@@ -1804,7 +1929,10 @@ function ScriptEditor() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Flow Dependency (Link Step)</Label>
+                        <div className="flex flex-col">
+                            <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Flow Dependency (Link Step)</Label>
+                            <span className="text-[8px] text-muted-foreground leading-tight italic">Indicate if this step relies on a previous step's completion</span>
+                        </div>
                         <Select 
                             value={step.linked_step_id || 'none'} 
                             onValueChange={async (val) => {
@@ -1832,7 +1960,10 @@ function ScriptEditor() {
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Media Attachment (Reference)</Label>
+                        <div className="flex flex-col">
+                            <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Media Attachment (Reference)</Label>
+                            <span className="text-[8px] text-muted-foreground leading-tight italic">Mockups, design screenshots, or video walkthroughs for comparison</span>
+                        </div>
                         {step.media_url ? (
                             <div className="relative aspect-video bg-black rounded-lg overflow-hidden border shadow-sm group">
                                 {step.media_url.match(/\.(mp4|webm)$/) ? (
@@ -2453,9 +2584,9 @@ function LoginView() {
       <Card className="w-full max-w-md shadow-2xl border-primary/20">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto bg-primary text-primary-foreground p-3 rounded-xl w-16 h-16 flex items-center justify-center mb-4">
-            <span className="font-black text-3xl uppercase tracking-tighter">GP</span>
+            <span className="font-black text-3xl uppercase tracking-tighter">G</span>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">Welcome to QA Infra</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">Gappify Testing</CardTitle>
           <CardDescription>Enter your email to access the enterprise testing hub.</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
@@ -2534,11 +2665,11 @@ export default function App() {
             <header className="border-b px-6 py-4 flex items-center justify-between bg-card text-card-foreground sticky top-0 z-50">
             <Link to="/" className="flex items-center space-x-2 group">
               <div className="bg-primary text-primary-foreground p-1.5 rounded-lg transition-transform group-hover:scale-110 duration-300">
-                <span className="font-black tracking-wider text-xl uppercase">GP</span>
+                <span className="font-black tracking-wider text-xl uppercase">G</span>
               </div>
               <div className="flex flex-col -space-y-1">
-                <span className="font-extrabold text-lg tracking-tight">QA INFRA</span>
-                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest pl-1">Enterprise Analytics</span>
+                <span className="font-extrabold text-lg tracking-tight">GAPPIFY TESTING</span>
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest pl-1">Unified UAT Hub</span>
               </div>
             </Link>
             

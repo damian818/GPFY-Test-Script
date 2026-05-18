@@ -5,6 +5,7 @@ export type TestScript = {
   category?: string;
   assignee_emails?: string[];
   tenant_domain?: string;
+  creator_email?: string;
   order_index?: number;
   created_at: string;
 };
