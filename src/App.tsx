@@ -63,11 +63,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select.tsx';
 
 // --- Utility: Handle Mailto ---
-const handleMailto = (url: string) => {
-  // Direct synchronous assignment is the standard way to handle mailto:
-  // It will NOT navigate the user away from the app.
-  window.location.href = url;
-};
+// NO LONGER NEEDED: We now use native <a> tags via Button's render prop for better compatibility.
 
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
 
@@ -315,11 +311,12 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                   Test Run
               </Button>
               {isAdmin && (
-                <Button variant="ghost" size="icon" className="hover:bg-primary/10 text-primary" onClick={() => {
-                  const subject = encodeURIComponent(`Please review test script: ${script.title}`);
-                  const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
-                  handleMailto(`mailto:?subject=${subject}&body=${body}`);
-                }}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="hover:bg-primary/10 text-primary"
+                  render={<a href={`mailto:?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`} />}
+                >
                   <Mail className="h-4 w-4" />
                 </Button>
               )}
@@ -1214,9 +1211,7 @@ function ReportView() {
                 );
                 return (
                   <Button 
-                    onClick={() => {
-                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
-                    }}
+                    render={<a href={`mailto:services@gappify.com?subject=${subject}&body=${body}`} />}
                   >
                      <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
                   </Button>
@@ -1302,9 +1297,7 @@ function ReportView() {
                              size="sm"
                              variant="destructive"
                              className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
-                             onClick={() => {
-                                handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
-                             }}
+                             render={<a href={`mailto:services@gappify.com?subject=${subject}&body=${body}`} />}
                            >
                               <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
                            </Button>
@@ -1490,11 +1483,7 @@ function ScriptEditor() {
         <Button 
           variant="outline" 
           className="shadow-sm font-bold tracking-wider uppercase text-[10px]"
-          onClick={() => {
-            const subject = encodeURIComponent(`Please review test script: ${script.title}`);
-            const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
-            handleMailto(`mailto:?subject=${subject}&body=${body}`);
-          }}
+          render={<a href={`mailto:?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`} />}
         >
           <Mail className="h-3.5 w-3.5 mr-2" /> Share Script
         </Button>
@@ -1993,8 +1982,9 @@ function ExecutionView() {
                        `Failed Step: ${currentStep?.instruction}\n` +
                        `Tester: ${execution?.tester_email}\n`
                    );
-                   handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
-               }}>
+               }}
+               render={<a href={`mailto:services@gappify.com?subject=${subject}&body=${body}`} />}
+               >
                   Notify Gappify Now
                </Button>
             </DialogFooter>
@@ -2157,16 +2147,12 @@ function ExecutionView() {
                                     size="sm" 
                                     variant="destructive"
                                     className="h-7 text-[9px] uppercase font-bold tracking-wider"
-                                    onClick={() => {
-                                        const subject = encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`);
-                                        const body = encodeURIComponent(
-                                            `Hello Gappify Team,\n\n` +
-                                            `I need assistance with a failed step.\n\n` +
-                                            `Failed Step: ${currentStep.instruction}\n` +
-                                            `Tester: ${execution?.tester_email}\n`
-                                        );
-                                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
-                                    }}
+                                    render={<a href={`mailto:services@gappify.com?subject=${encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`)}&body=${encodeURIComponent(
+                                        `Hello Gappify Team,\n\n` +
+                                        `I need assistance with a failed step.\n\n` +
+                                        `Failed Step: ${currentStep.instruction}\n` +
+                                        `Tester: ${execution?.tester_email}\n`
+                                    )}`} />}
                                 >
                                     Notify Gappify Now
                                 </Button>
