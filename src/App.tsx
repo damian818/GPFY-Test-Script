@@ -1206,11 +1206,13 @@ function ReportView() {
                   `Additional feedback:\n[Write any feedback here]`
                 );
                 return (
-                  <a href={`mailto:services@gappify.com?subject=${subject}&body=${body}`} target="_blank" rel="noopener noreferrer" className="self-end pb-1 inline-block">
-                     <Button>
-                        <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
-                     </Button>
-                  </a>
+                  <Button 
+                    onClick={() => {
+                        window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
+                    }}
+                  >
+                     <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
+                  </Button>
                 );
              })()}
           </div>
@@ -1289,15 +1291,16 @@ function ReportView() {
                            `Link to review execution: ${window.location.origin}/report/${executionId}\n`
                          );
                          return (
-                           <a href={`mailto:services@gappify.com?subject=${subject}&body=${body}`} target="_blank" rel="noopener noreferrer" className="inline-block">
-                             <Button
-                               size="sm"
-                               variant="destructive"
-                               className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
-                             >
-                                <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
-                             </Button>
-                           </a>
+                           <Button
+                             size="sm"
+                             variant="destructive"
+                             className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
+                             onClick={() => {
+                                window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
+                             }}
+                           >
+                              <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
+                           </Button>
                          );
                        })()}
                     </div>
@@ -2001,22 +2004,22 @@ function ExecutionView() {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
           >
             <Card className="shadow-2xl border-primary/10 overflow-hidden ring-1 ring-primary/5">
-                <CardHeader className="bg-primary/5 pt-8 pb-6 border-b">
-                    <div className="flex justify-between items-center mb-3">
+                <CardHeader className="bg-primary/5 pt-4 pb-3 border-b">
+                    <div className="flex justify-between items-center mb-2">
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] bg-primary/10 px-2 py-0.5 rounded-md">{currentStep.section}</span>
                         <span className="text-[10px] font-bold text-muted-foreground uppercase">Step Indicator</span>
                     </div>
-                    <CardTitle className="text-2xl font-extrabold leading-tight tracking-tight drop-shadow-sm">{currentStep.instruction}</CardTitle>
+                    <CardTitle className="text-xl font-extrabold leading-tight tracking-tight drop-shadow-sm">{currentStep.instruction}</CardTitle>
                 </CardHeader>
-                <CardContent className="py-8 space-y-8">
+                <CardContent className="py-4 space-y-4">
                     {currentStep.notes && (
-                        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/20 p-5 rounded-xl flex gap-4">
-                            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/20 p-3 rounded-xl flex gap-3">
+                            <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
                             </div>
                             <div>
-                                <Label className="text-amber-800 dark:text-amber-500 text-[10px] font-black uppercase tracking-widest mb-1 block">Expected Outcome</Label>
-                                <p className="text-amber-950 dark:text-amber-300 font-medium leading-relaxed">{currentStep.notes}</p>
+                                <Label className="text-amber-800 dark:text-amber-500 text-[9px] font-black uppercase tracking-widest mb-0.5 block">Expected Outcome</Label>
+                                <p className="text-amber-950 dark:text-amber-300 text-sm font-medium leading-relaxed">{currentStep.notes}</p>
                             </div>
                         </div>
                     )}
@@ -2048,29 +2051,29 @@ function ExecutionView() {
                         );
                     })()}
 
-                    <div className="grid md:grid-cols-2 gap-8">
+                    <div className="grid md:grid-cols-2 gap-4">
                         {currentStep.test_data && (
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                                     <Database className="h-3 w-3" />
                                     Required Test Data
                                 </Label>
-                                <div className="bg-primary/5 border-2 border-primary/10 p-4 rounded-xl flex items-center justify-between group">
-                                    <code className="text-primary font-black tracking-tighter text-lg">{currentStep.test_data}</code>
+                                <div className="bg-primary/5 border-2 border-primary/10 p-3 rounded-xl flex items-center justify-between group">
+                                    <code className="text-primary font-black tracking-tighter sm:text-base text-sm">{currentStep.test_data}</code>
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                                         onClick={() => navigator.clipboard.writeText(currentStep.test_data!)}
                                     >
-                                        <Copy className="h-4 w-4" />
+                                        <Copy className="h-3 w-3" />
                                     </Button>
                                 </div>
                             </div>
                         )}
 
                         {currentStep.media_url && (
-                             <div className="space-y-3">
+                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                                     <PlayCircle className="h-3 w-3" />
                                     Reference Visual Aid
@@ -2086,74 +2089,95 @@ function ExecutionView() {
                         )}
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Verification Result</Label>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             <Button 
                                 variant={status === 'pass' ? 'default' : 'outline'}
-                                className={`h-24 flex-col gap-2 rounded-2xl transition-all duration-300 border-2 ${status === 'pass' ? 'bg-green-600 hover:bg-green-700 border-green-600 shadow-lg shadow-green-600/20' : 'hover:border-green-500/50 hover:bg-green-50/50 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
+                                className={`h-14 flex-col gap-1 rounded-xl transition-all duration-300 border-2 ${status === 'pass' ? 'bg-green-600 hover:bg-green-700 border-green-600 shadow-lg shadow-green-600/20' : 'hover:border-green-500/50 hover:bg-green-50/50 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
                                 onClick={() => setStatus('pass')}
                             >
-                                <CheckCircle2 className={`h-8 w-8 ${status === 'pass' ? 'text-white' : 'text-green-500'}`} />
-                                <span className="font-black text-xs tracking-widest">SUCCESSFUL</span>
+                                <CheckCircle2 className={`h-5 w-5 ${status === 'pass' ? 'text-white' : 'text-green-500'}`} />
+                                <span className="font-black text-[10px] tracking-widest">SUCCESSFUL</span>
                             </Button>
                             <Button 
                                 variant={status === 'fail' ? 'destructive' : 'outline'}
-                                className={`h-24 flex-col gap-2 rounded-2xl transition-all duration-300 border-2 ${status === 'fail' ? 'shadow-lg shadow-destructive/20 border-destructive' : 'hover:border-destructive/50 hover:bg-destructive/5 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
+                                className={`h-14 flex-col gap-1 rounded-xl transition-all duration-300 border-2 ${status === 'fail' ? 'shadow-lg shadow-destructive/20 border-destructive' : 'hover:border-destructive/50 hover:bg-destructive/5 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
                                 onClick={() => setStatus('fail')}
                             >
-                                <XCircle className={`h-8 w-8 ${status === 'fail' ? 'text-white' : 'text-destructive'}`} />
-                                <span className="font-black text-xs tracking-widest">FAILURE FOUND</span>
+                                <XCircle className={`h-5 w-5 ${status === 'fail' ? 'text-white' : 'text-destructive'}`} />
+                                <span className="font-black text-[10px] tracking-widest">FAILURE FOUND</span>
                             </Button>
                         </div>
+                        {status === 'fail' && (
+                            <div className="bg-destructive/5 border border-destructive/20 p-3 rounded-lg flex items-center justify-between shadow-inner animate-in fade-in slide-in-from-top-1">
+                                <div className="text-sm">
+                                   <span className="font-bold text-destructive">Step marked as failed.</span>
+                                   <span className="text-muted-foreground ml-1">Need immediate assistance?</span>
+                                </div>
+                                <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    className="h-8 text-[10px] uppercase font-bold tracking-wider"
+                                    onClick={() => {
+                                        const subject = encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`);
+                                        const body = encodeURIComponent(
+                                            `Hello Gappify Team,\n\n` +
+                                            `I need assistance with a failed step.\n\n` +
+                                            `Failed Step: ${currentStep.instruction}\n` +
+                                            `Tester: ${execution?.tester_email}\n`
+                                        );
+                                        window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
+                                    }}
+                                >
+                                    Notify Gappify Now
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="space-y-4 pt-6 border-t">
+                    <div className="space-y-3 pt-4 border-t">
                         <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Execution Narrative</Label>
-                        <div className="space-y-5">
+                        <div className="space-y-4">
                             <div className="relative group">
                                 <Textarea 
                                     placeholder="Click to start typing your observations..."
                                     value={comments}
                                     onChange={e => setComments(e.target.value)}
-                                    rows={4}
-                                    className="resize-none rounded-xl border-2 focus:ring-4 transition-all duration-300"
+                                    rows={2}
+                                    className="resize-none rounded-xl border-2 focus:ring-4 transition-all duration-300 text-sm"
                                 />
                                 <div className="absolute top-3 right-3 text-muted-foreground/30 pointer-events-none group-focus-within:opacity-0 transition-opacity">
                                   <Settings className="h-4 w-4" />
                                 </div>
                             </div>
                             
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                                 <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Visual Evidence</Label>
-                                <div className="flex flex-wrap gap-4">
+                                <div className="flex flex-wrap gap-3">
                                     <div className="flex-1">
                                         <Button 
                                             variant="outline" 
-                                            className={`w-full h-32 flex-col gap-2 border-dashed border-2 rounded-2xl relative transition-all duration-300 ${mediaUrl ? 'border-green-500 bg-green-50/30' : 'hover:border-primary/50 hover:bg-primary/5'}`}
+                                            className={`w-full h-20 flex-col gap-1 border-dashed border-2 rounded-xl relative transition-all duration-300 ${mediaUrl ? 'border-green-500 bg-green-50/30' : 'hover:border-primary/50 hover:bg-primary/5'}`}
                                             disabled={uploading}
                                         >
                                             {uploading ? (
-                                                <div className="flex flex-col items-center gap-2">
-                                                  <div className="h-6 w-6 border-t-2 border-primary rounded-full animate-spin" />
-                                                  <span className="text-[10px] font-black text-primary">PROCESSING...</span>
+                                                <div className="flex flex-col items-center gap-1">
+                                                  <div className="h-4 w-4 border-t-2 border-primary rounded-full animate-spin" />
+                                                  <span className="text-[9px] font-black text-primary">PROCESSING...</span>
                                                 </div>
                                             ) : mediaUrl ? (
                                                 <div className="flex flex-col items-center">
-                                                    <div className="bg-green-500 p-2 rounded-full mb-2">
-                                                      <Check className="h-5 w-5 text-white" />
+                                                    <div className="bg-green-500 p-1 rounded-full mb-1">
+                                                      <Check className="h-3 w-3 text-white" />
                                                     </div>
-                                                    <span className="text-[10px] font-black text-green-600 uppercase tracking-tighter">Asset Linked</span>
-                                                    <span className="text-[9px] text-muted-foreground truncate max-w-[200px] mt-1 opacity-50">{mediaUrl}</span>
+                                                    <span className="text-[9px] font-black text-green-600 uppercase tracking-tighter">Asset Linked</span>
                                                 </div>
                                             ) : (
-                                                <>
-                                                    <UploadCloud className="h-8 w-8 text-muted-foreground mb-1" />
-                                                    <div className="text-center">
-                                                        <div className="font-black text-[10px] uppercase tracking-widest">Inject Evidence</div>
-                                                        <div className="text-[9px] text-muted-foreground mt-1">Image or Video Payload</div>
-                                                    </div>
-                                                </>
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <UploadCloud className="h-5 w-5 text-muted-foreground" />
+                                                    <div className="font-black text-[9px] uppercase tracking-widest">Inject Evidence</div>
+                                                </div>
                                             )}
                                             <input 
                                                 type="file" 
@@ -2168,9 +2192,9 @@ function ExecutionView() {
                         </div>
                     </div>
                 </CardContent>
-                <CardFooter className="bg-muted/50 border-t p-8">
+                <CardFooter className="bg-muted/50 border-t p-4">
                     <Button 
-                        className="w-full h-14 text-lg font-black uppercase tracking-[0.1em] shadow-xl shadow-primary/20 transition-all hover:translate-y-[-2px] active:translate-y-[0px]" 
+                        className="w-full h-12 text-base font-black uppercase tracking-[0.1em] shadow-lg shadow-primary/20 transition-all hover:translate-y-[-2px] active:translate-y-[0px]" 
                         onClick={saveCurrentStep} 
                         disabled={!status}
                     >
