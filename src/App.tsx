@@ -54,7 +54,7 @@ import { supabase } from './lib/supabase.ts';
 import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './lib/types.ts';
 
 // UI Components
-import { Button, buttonVariants } from './components/ui/button.tsx';
+import { Button } from './components/ui/button.tsx';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card.tsx';
 import { Input } from './components/ui/input.tsx';
 import { Label } from './components/ui/label.tsx';
@@ -62,6 +62,12 @@ import { Textarea } from './components/ui/textarea.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select.tsx';
 
+
+// --- Utility: Handle Mailto ---
+const handleMailto = (url: string) => {
+  // Synchronous assignment bypasses React Router and prevents empty tabs.
+  window.location.href = url;
+};
 
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
 
@@ -309,13 +315,18 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                   Test Run
               </Button>
               {isAdmin && (
-                <a 
-                  href={`mailto:team@gappify.com?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`}
-                  target="_top"
-                  className={buttonVariants({ variant: "ghost", size: "icon", className: "hover:bg-primary/10 text-primary" })}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="hover:bg-primary/10 text-primary" 
+                  onClick={() => {
+                    const subject = encodeURIComponent(`Please review test script: ${script.title}`);
+                    const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
+                    handleMailto(`mailto:team@gappify.com?subject=${subject}&body=${body}`);
+                  }}
                 >
                   <Mail className="h-4 w-4" />
-                </a>
+                </Button>
               )}
               {isAdmin && (
                 <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
@@ -1207,13 +1218,13 @@ function ReportView() {
                   `Additional feedback:\n[Write any feedback here]`
                 );
                 return (
-                  <a 
-                    href={`mailto:services@gappify.com?subject=${subject}&body=${body}`}
-                    target="_top"
-                    className={buttonVariants({ variant: "default" })}
+                  <Button 
+                    onClick={() => {
+                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+                    }}
                   >
                      <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
-                  </a>
+                  </Button>
                 );
              })()}
           </div>
@@ -1292,17 +1303,16 @@ function ReportView() {
                            `Link to review execution: ${window.location.origin}/report/${executionId}\n`
                          );
                          return (
-                           <a
-                             href={`mailto:services@gappify.com?subject=${subject}&body=${body}`}
-                             target="_top"
-                             className={buttonVariants({ 
-                               variant: "destructive", 
-                               size: "sm", 
-                               className: "shadow-sm font-bold uppercase tracking-wider text-[10px]" 
-                             })}
+                           <Button
+                             size="sm"
+                             variant="destructive"
+                             className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
+                             onClick={() => {
+                                handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+                             }}
                            >
                               <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
-                           </a>
+                           </Button>
                          );
                        })()}
                     </div>
@@ -1482,13 +1492,17 @@ function ScriptEditor() {
             </p>
           </div>
         </div>
-        <a 
-          href={`mailto:team@gappify.com?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`}
-          target="_top"
-          className={buttonVariants({ variant: "outline", className: "shadow-sm font-bold tracking-wider uppercase text-[10px]" })}
+        <Button 
+          variant="outline" 
+          className="shadow-sm font-bold tracking-wider uppercase text-[10px]"
+          onClick={() => {
+            const subject = encodeURIComponent(`Please review test script: ${script.title}`);
+            const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
+            handleMailto(`mailto:team@gappify.com?subject=${subject}&body=${body}`);
+          }}
         >
           <Mail className="h-3.5 w-3.5 mr-2" /> Share Script
-        </a>
+        </Button>
       </div>
 
       <Card className="bg-muted/10 border-primary/10 shadow-sm">
@@ -1983,17 +1997,16 @@ function ExecutionView() {
                        `Tester: ${execution?.tester_email}\n`
                    );
                    return (
-                       <a 
-                           href={`mailto:services@gappify.com?subject=${subject}&body=${body}`}
-                           target="_top"
-                           className={buttonVariants({ variant: 'destructive' })}
+                       <Button 
+                           variant="destructive"
                            onClick={() => {
                                setStatus('fail');
                                setShowFailPrompt(false);
+                               handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
                            }}
                        >
                            Notify Gappify Now
-                       </a>
+                       </Button>
                    );
                })()}
             </DialogFooter>
@@ -2152,22 +2165,23 @@ function ExecutionView() {
                                 <div className="text-xs">
                                    <span className="font-bold text-destructive">Step marked as failed.</span>
                                 </div>
-                                <a 
-                                    href={`mailto:services@gappify.com?subject=${encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`)}&body=${encodeURIComponent(
-                                        `Hello Gappify Team,\n\n` +
-                                        `I need assistance with a failed step.\n\n` +
-                                        `Failed Step: ${currentStep.instruction}\n` +
-                                        `Tester: ${execution?.tester_email}\n`
-                                    )}`}
-                                    target="_top"
-                                    className={buttonVariants({ 
-                                        variant: "destructive", 
-                                        size: "sm", 
-                                        className: "h-7 text-[9px] uppercase font-bold tracking-wider" 
-                                    })}
+                                <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    className="h-7 text-[9px] uppercase font-bold tracking-wider"
+                                    onClick={() => {
+                                        const subject = encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`);
+                                        const body = encodeURIComponent(
+                                            `Hello Gappify Team,\n\n` +
+                                            `I need assistance with a failed step.\n\n` +
+                                            `Failed Step: ${currentStep.instruction}\n` +
+                                            `Tester: ${execution?.tester_email}\n`
+                                        );
+                                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+                                    }}
                                 >
                                     Notify Gappify Now
-                                </a>
+                                </Button>
                             </div>
                         )}
                     </div>
