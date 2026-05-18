@@ -8,7 +8,7 @@ class MockStore {
       title: 'User UAT Test Script',
       description: 'Standard end-user testing for Gappify Accrual Cloud workflows.',
       category: 'User Training',
-      assignee_emails: ['damian@gappify.com'],
+      tenant_domain: 'gappify.com',
       created_at: new Date().toISOString(),
     },
     {

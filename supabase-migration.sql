@@ -20,3 +20,11 @@ BEGIN
   END IF;
 END $$;
 
+-- 3. Add tenant_domain for grouping scripts by customer
+DO $$
+BEGIN
+  IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name='test_scripts') AND NOT EXISTS(SELECT * FROM information_schema.columns WHERE table_name='test_scripts' and column_name='tenant_domain') THEN
+    ALTER TABLE test_scripts ADD COLUMN tenant_domain text;
+  END IF;
+END $$;
+

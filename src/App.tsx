@@ -38,6 +38,7 @@ import {
   ChevronDown,
   Tag,
   Filter,
+  Mail,
   Database,
   Copy,
   PlayCircle,
@@ -277,8 +278,15 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
           )}
           <CardHeader className="pb-3 pr-16 bg-card/50">
               <div className="flex justify-between items-start mb-1">
-                  <div className="px-2 py-0.5 rounded bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/10">
-                      {script.category || 'General'}
+                  <div className="flex gap-2">
+                      <div className="px-2 py-0.5 rounded bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/10">
+                          {script.category || 'General'}
+                      </div>
+                      {script.tenant_domain && (
+                        <div className="px-2 py-0.5 rounded bg-muted text-muted-foreground text-[9px] font-black uppercase tracking-widest border border-border">
+                            {script.tenant_domain}
+                        </div>
+                      )}
                   </div>
               </div>
               <CardTitle className="group-hover:text-primary transition-colors">{script.title}</CardTitle>
@@ -299,6 +307,15 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                   <Play className="mr-2 h-3.5 w-3.5 fill-current" />
                   Test Run
               </Button>
+              {isAdmin && (
+                <Button variant="ghost" size="icon" className="hover:bg-primary/10 text-primary" onClick={() => {
+                  const subject = encodeURIComponent(`Please review test script: ${script.title}`);
+                  const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
+                  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                }}>
+                  <Mail className="h-4 w-4" />
+                </Button>
+              )}
               {isAdmin && (
                 <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
                     if (confirm('Are you sure you want to delete this script?')) {
@@ -370,9 +387,10 @@ function Dashboard() {
   };
 
   const isAdmin = role === 'Gappify Admin';
+  const userDomain = email ? email.split('@')[1] : '';
 
   const visibleScripts = role === 'Customer' 
-    ? scripts.filter(s => s.assignee_emails?.includes(email))
+    ? scripts.filter(s => !s.tenant_domain || s.tenant_domain === userDomain)
     : scripts;
 
   const visibleExecutions = isAdmin 
@@ -400,6 +418,7 @@ function Dashboard() {
         title: newTitle,
         description: newDesc,
         category: newCategory || 'General',
+        tenant_domain: isAdmin ? '' : userDomain,
         order_index: highestOrder + 1
       });
       setIsDialogOpen(false);
@@ -1331,7 +1350,7 @@ function ScriptEditor() {
   const [newLinkedStepId, setNewLinkedStepId] = useState<string>('none');
   const [stepMediaUploading, setStepMediaUploading] = useState(false);
 
-  const [editScript, setEditScript] = useState<{ title: string, description: string, category: string, assignee_emails: string[] } | null>(null);
+  const [editScript, setEditScript] = useState<{ title: string, description: string, category: string, tenant_domain: string } | null>(null);
   const [savingScript, setSavingScript] = useState(false);
 
   useEffect(() => {
@@ -1345,7 +1364,7 @@ function ScriptEditor() {
       const st = await api.getScriptSteps(scriptId!);
       setScript(s);
       setSteps(st);
-      if (s) setEditScript({ title: s.title, description: s.description, category: s.category || 'General', assignee_emails: s.assignee_emails || [] });
+      if (s) setEditScript({ title: s.title, description: s.description, category: s.category || 'General', tenant_domain: s.tenant_domain || '' });
     } catch (e) {
       console.error(e);
     }
@@ -1439,17 +1458,31 @@ function ScriptEditor() {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto py-10 px-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" size="icon" render={<Link to="/" />}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{script.title}</h1>
-          <p className="text-muted-foreground flex items-center gap-2">
-            <Tag className="h-3 w-3" />
-            {script.category || 'General'}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" size="icon" render={<Link to="/" />}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{script.title}</h1>
+            <p className="text-muted-foreground flex items-center gap-2">
+              <Tag className="h-3 w-3" />
+              {script.category || 'General'}
+              {script.tenant_domain && <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-primary/10 rounded-full">{script.tenant_domain}</span>}
+            </p>
+          </div>
         </div>
+        <Button 
+          variant="outline" 
+          className="shadow-sm font-bold tracking-wider uppercase text-[10px]"
+          onClick={() => {
+            const subject = encodeURIComponent(`Please review test script: ${script.title}`);
+            const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+          }}
+        >
+          <Mail className="h-3.5 w-3.5 mr-2" /> Share Script
+        </Button>
       </div>
 
       <Card className="bg-muted/10 border-primary/10 shadow-sm">
@@ -1477,11 +1510,11 @@ function ScriptEditor() {
                       />
                   </div>
                   <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Assignee Emails</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tenant Domain</Label>
                       <Input 
-                        value={(editScript?.assignee_emails || []).join(', ')} 
-                        onChange={e => setEditScript(prev => prev ? { ...prev, assignee_emails: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : null)} 
-                        placeholder="Comma-separated emails"
+                        value={editScript?.tenant_domain || ''} 
+                        onChange={e => setEditScript(prev => prev ? { ...prev, tenant_domain: e.target.value.trim() } : null)} 
+                        placeholder="e.g. acme.com (leave empty for global)"
                       />
                   </div>
               </div>
