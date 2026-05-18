@@ -64,16 +64,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 // --- Utility: Handle Mailto ---
 const handleMailto = (url: string) => {
-  const link = document.createElement('a');
-  link.href = url;
-  
-  // Using _blank as a target helps trigger external protocol handlers 
-  // without navigating the current page away.
-  link.target = '_blank'; 
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  // Direct synchronous assignment is the standard way to handle mailto:
+  // It will NOT navigate the user away from the app.
+  window.location.href = url;
 };
 
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
