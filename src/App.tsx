@@ -62,6 +62,16 @@ import { Textarea } from './components/ui/textarea.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select.tsx';
 
+// --- Utility: Handle Mailto ---
+const handleMailto = (url: string) => {
+  const a = document.createElement('a');
+  a.href = url;
+  // Let the browser handle standard mailto without target=_blank
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
 
 type UserContextType = {
@@ -311,7 +321,7 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                 <Button variant="ghost" size="icon" className="hover:bg-primary/10 text-primary" onClick={() => {
                   const subject = encodeURIComponent(`Please review test script: ${script.title}`);
                   const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
-                  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                  handleMailto(`mailto:?subject=${subject}&body=${body}`);
                 }}>
                   <Mail className="h-4 w-4" />
                 </Button>
@@ -1208,7 +1218,7 @@ function ReportView() {
                 return (
                   <Button 
                     onClick={() => {
-                        window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
+                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
                     }}
                   >
                      <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
@@ -1296,7 +1306,7 @@ function ReportView() {
                              variant="destructive"
                              className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
                              onClick={() => {
-                                window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
+                                handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
                              }}
                            >
                               <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
@@ -1486,7 +1496,7 @@ function ScriptEditor() {
           onClick={() => {
             const subject = encodeURIComponent(`Please review test script: ${script.title}`);
             const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
-            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            handleMailto(`mailto:?subject=${subject}&body=${body}`);
           }}
         >
           <Mail className="h-3.5 w-3.5 mr-2" /> Share Script
@@ -1809,6 +1819,7 @@ function ExecutionView() {
 
   // Current step state
   const [status, setStatus] = useState<'pass' | 'fail' | null>(null);
+  const [showFailPrompt, setShowFailPrompt] = useState(false);
   const [comments, setComments] = useState('');
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -1961,7 +1972,38 @@ function ExecutionView() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center pb-10 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center pb-10 overflow-y-auto relative">
+      <Dialog open={showFailPrompt} onOpenChange={setShowFailPrompt}>
+         <DialogContent>
+            <DialogHeader>
+               <DialogTitle>Failure Found</DialogTitle>
+               <DialogDescription>
+                 Would you like to notify the Gappify team immediately about this issue?
+               </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 justify-end mt-4">
+               <Button variant="outline" onClick={() => {
+                   setStatus('fail');
+                   setShowFailPrompt(false);
+               }}>Just mark as failed</Button>
+               <Button variant="destructive" onClick={() => {
+                   setStatus('fail');
+                   setShowFailPrompt(false);
+                   const subject = encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`);
+                   const body = encodeURIComponent(
+                       `Hello Gappify Team,\n\n` +
+                       `I need assistance with a failed step.\n\n` +
+                       `Failed Step: ${currentStep?.instruction}\n` +
+                       `Tester: ${execution?.tester_email}\n`
+                   );
+                   handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+               }}>
+                  Notify Gappify Now
+               </Button>
+            </DialogFooter>
+         </DialogContent>
+      </Dialog>
+
       <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -2103,7 +2145,7 @@ function ExecutionView() {
                             <Button 
                                 variant={status === 'fail' ? 'destructive' : 'outline'}
                                 className={`h-14 flex-col gap-1 rounded-xl transition-all duration-300 border-2 ${status === 'fail' ? 'shadow-lg shadow-destructive/20 border-destructive' : 'hover:border-destructive/50 hover:bg-destructive/5 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
-                                onClick={() => setStatus('fail')}
+                                onClick={() => setShowFailPrompt(true)}
                             >
                                 <XCircle className={`h-5 w-5 ${status === 'fail' ? 'text-white' : 'text-destructive'}`} />
                                 <span className="font-black text-[10px] tracking-widest">FAILURE FOUND</span>
@@ -2127,7 +2169,7 @@ function ExecutionView() {
                                             `Failed Step: ${currentStep.instruction}\n` +
                                             `Tester: ${execution?.tester_email}\n`
                                         );
-                                        window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
+                                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
                                     }}
                                 >
                                     Notify Gappify Now
