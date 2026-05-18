@@ -1174,6 +1174,9 @@ function ReportView() {
           <div className="self-end pb-1">
              <Button 
                 onClick={() => {
+                  const failedStepsInfo = exeSteps.filter(s => s.status === 'fail').map((s, i) => 
+                    `Step: ${s.step.instruction}\nError / Comments: ${s.comments || 'No comments'}\nMedia attached: ${s.uploaded_media_url || 'None'}\n`
+                  ).join('\n---\n');
                   const subject = encodeURIComponent(`UAT Results: ${execution.test_scripts.title}`);
                   const body = encodeURIComponent(
                     `Hello Gappify Team,\n\n` +
@@ -1181,9 +1184,10 @@ function ReportView() {
                     `Tester: ${execution.tester_email}\n` +
                     `Link to review: ${window.location.origin}/report/${executionId}\n\n` +
                     `Stats: ${stats.passed} Passed, ${stats.failed} Failed, ${stats.skipped} Skipped.\n\n` +
+                    (failedStepsInfo ? `Failed Steps Details:\n${failedStepsInfo}\n\n` : '') +
                     `Additional feedback:\n[Write any feedback here]`
                   );
-                  window.location.href = `mailto:support@gappify.com?subject=${subject}&body=${body}`;
+                  window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
                 }}
              >
                 <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
@@ -1248,6 +1252,30 @@ function ReportView() {
                     <div className="mt-4 pt-4 border-t border-muted/40">
                       <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block mb-2">Tester Comments</Label>
                       <p className="text-sm font-medium">{stepResult.comments}</p>
+                    </div>
+                  )}
+                  {stepResult.status === 'fail' && (
+                    <div className="mt-4 pt-4 border-t border-muted/40 text-left">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
+                        onClick={() => {
+                          const subject = encodeURIComponent(`Issue Report: ${execution.test_scripts.title} - Step ${idx + 1}`);
+                          const body = encodeURIComponent(
+                            `Hello Gappify Team,\n\n` +
+                            `I'm reporting an issue in "${execution.test_scripts.title}".\n\n` +
+                            `Failed Step: ${stepResult.step.instruction}\n` +
+                            `Error / Comments: ${stepResult.comments || 'No comments'}\n` +
+                            `Media attached: ${stepResult.uploaded_media_url || 'None'}\n\n` +
+                            `Tester: ${execution.tester_email}\n` +
+                            `Link to review execution: ${window.location.origin}/report/${executionId}\n`
+                          );
+                          window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
+                        }}
+                      >
+                         <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1572,7 +1600,11 @@ function ScriptEditor() {
                             }}
                         >
                             <SelectTrigger className="w-full bg-background border-primary/10 h-9 text-xs">
-                                <SelectValue placeholder="No dependency" />
+                                <SelectValue placeholder="No dependency">
+                                    {step.linked_step_id && steps.find(s => s.id === step.linked_step_id) ? 
+                                        `Step ${steps.indexOf(steps.find(s => s.id === step.linked_step_id)!) + 1}: ${steps.find(s => s.id === step.linked_step_id)!.instruction.substring(0, 30)}...` 
+                                        : "No dependency"}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">No dependency</SelectItem>
