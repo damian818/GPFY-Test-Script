@@ -310,7 +310,8 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
               </Button>
               {isAdmin && (
                 <a 
-                  href={`mailto:?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`}
+                  href={`mailto:team@gappify.com?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`}
+                  target="_top"
                   className={buttonVariants({ variant: "ghost", size: "icon", className: "hover:bg-primary/10 text-primary" })}
                 >
                   <Mail className="h-4 w-4" />
@@ -1208,6 +1209,7 @@ function ReportView() {
                 return (
                   <a 
                     href={`mailto:services@gappify.com?subject=${subject}&body=${body}`}
+                    target="_top"
                     className={buttonVariants({ variant: "default" })}
                   >
                      <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
@@ -1292,6 +1294,7 @@ function ReportView() {
                          return (
                            <a
                              href={`mailto:services@gappify.com?subject=${subject}&body=${body}`}
+                             target="_top"
                              className={buttonVariants({ 
                                variant: "destructive", 
                                size: "sm", 
@@ -1480,7 +1483,8 @@ function ScriptEditor() {
           </div>
         </div>
         <a 
-          href={`mailto:?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`}
+          href={`mailto:team@gappify.com?subject=${encodeURIComponent(`Please review test script: ${script.title}`)}&body=${encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`)}`}
+          target="_top"
           className={buttonVariants({ variant: "outline", className: "shadow-sm font-bold tracking-wider uppercase text-[10px]" })}
         >
           <Mail className="h-3.5 w-3.5 mr-2" /> Share Script
@@ -1981,6 +1985,7 @@ function ExecutionView() {
                    return (
                        <a 
                            href={`mailto:services@gappify.com?subject=${subject}&body=${body}`}
+                           target="_top"
                            className={buttonVariants({ variant: 'destructive' })}
                            onClick={() => {
                                setStatus('fail');
@@ -2154,6 +2159,7 @@ function ExecutionView() {
                                         `Failed Step: ${currentStep.instruction}\n` +
                                         `Tester: ${execution?.tester_email}\n`
                                     )}`}
+                                    target="_top"
                                     className={buttonVariants({ 
                                         variant: "destructive", 
                                         size: "sm", 
