@@ -5,7 +5,8 @@ CREATE TABLE test_scripts (
   title text NOT NULL,
   description text,
   category text DEFAULT 'General',
-  assignee_email text,
+  assignee_emails text[],
+  order_index int DEFAULT 0,
   created_at timestamp with time zone DEFAULT now()
 );
 

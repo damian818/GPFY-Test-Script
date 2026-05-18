@@ -8,7 +8,7 @@ class MockStore {
       title: 'User UAT Test Script',
       description: 'Standard end-user testing for Gappify Accrual Cloud workflows.',
       category: 'User Training',
-      assignee_email: 'damian@gappify.com',
+      assignee_emails: ['damian@gappify.com'],
       created_at: new Date().toISOString(),
     },
     {
@@ -111,7 +111,12 @@ class MockStore {
   executionSteps: TestExecutionStep[] = [];
 
   getScripts() {
-    return Promise.resolve(this.scripts);
+    return Promise.resolve([...this.scripts].sort((a, b) => {
+      const orderA = a.order_index ?? 0;
+      const orderB = b.order_index ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }));
   }
 
   getScript(id: string) {

@@ -3,7 +3,8 @@ export type TestScript = {
   title: string;
   description: string;
   category?: string;
-  assignee_email?: string;
+  assignee_emails?: string[];
+  order_index?: number;
   created_at: string;
 };
 

@@ -41,7 +41,9 @@ import {
   Image,
   BarChart2,
   GitBranch,
-  GitPullRequest
+  GitPullRequest,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { api } from './lib/api.ts';
 import { supabase } from './lib/supabase.ts';
@@ -56,13 +58,12 @@ import { Textarea } from './components/ui/textarea.tsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog.tsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select.tsx';
 
-export type Role = 'Gappify Admin' | 'Customer';
+export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
 
 type UserContextType = {
   role: Role;
-  email: string;
-  setRole: (role: Role) => void;
-  setEmail: (email: string) => void;
+  email: string | null;
+  setEmail: (email: string | null) => void;
 };
 
 export const UserContext = React.createContext<UserContextType | null>(null);
@@ -274,7 +275,7 @@ function Dashboard() {
   const isAdmin = role === 'Gappify Admin';
 
   const visibleScripts = role === 'Customer' 
-    ? scripts.filter(s => s.assignee_email === email)
+    ? scripts.filter(s => s.assignee_emails?.includes(email))
     : scripts;
 
   const visibleExecutions = isAdmin 
@@ -297,15 +298,55 @@ function Dashboard() {
   const handleCreate = async () => {
     if (!newTitle) return;
     try {
+      const highestOrder = scripts.reduce((max, s) => Math.max(max, s.order_index ?? 0), -1);
       const script = await api.createScript({
         title: newTitle,
         description: newDesc,
-        category: newCategory || 'General'
+        category: newCategory || 'General',
+        order_index: highestOrder + 1
       });
       setIsDialogOpen(false);
       navigate(`/admin/scripts/${script.id}`);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const moveOrder = async (index: number, direction: 'up' | 'down') => {
+    // We only reorder among the currently displayed list
+    const newIdx = direction === 'up' ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= filteredScripts.length) return;
+
+    // Normalize order indices for displayed items first if they don't exist
+    const itemsToUpdate = [...filteredScripts];
+    const currentItem = itemsToUpdate[index];
+    const swapItem = itemsToUpdate[newIdx];
+
+    const currentOrder = currentItem.order_index ?? index;
+    const swapOrder = swapItem.order_index ?? newIdx;
+    
+    // simple swap
+    currentItem.order_index = swapOrder;
+    swapItem.order_index = currentOrder;
+
+    // fix local state immediately
+    setScripts(prev => prev.map(s => {
+      if (s.id === currentItem.id) return { ...s, order_index: swapOrder };
+      if (s.id === swapItem.id) return { ...s, order_index: currentOrder };
+      return s;
+    }).sort((a, b) => {
+        const orderA = a.order_index ?? 0;
+        const orderB = b.order_index ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }));
+
+    try {
+      await api.updateScript(currentItem.id, { order_index: swapOrder });
+      await api.updateScript(swapItem.id, { order_index: currentOrder });
+    } catch (e) {
+      console.error(e);
+      loadData(); // revert on failure
     }
   };
 
@@ -578,6 +619,16 @@ function Dashboard() {
                               Created: {new Date(script.created_at).toLocaleDateString()}
                           </CardContent>
                           <CardFooter className="gap-2 border-t pt-4 bg-muted/20">
+                              {isAdmin && (
+                                <div className="flex gap-1 mr-1">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10" onClick={() => moveOrder(idx, 'up')} disabled={idx === 0}>
+                                        <ArrowUp className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10" onClick={() => moveOrder(idx, 'down')} disabled={idx === filteredScripts.length - 1}>
+                                        <ArrowDown className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                              )}
                               {isAdmin && (
                                 <Button render={<Link to={`/admin/scripts/${script.id}`} />} variant="outline" size="sm" className="flex-1 border-primary/20 hover:bg-primary/5">
                                     <Settings2 className="mr-2 h-3.5 w-3.5" />
@@ -1197,7 +1248,7 @@ function ScriptEditor() {
   const [newLinkedStepId, setNewLinkedStepId] = useState<string>('none');
   const [stepMediaUploading, setStepMediaUploading] = useState(false);
 
-  const [editScript, setEditScript] = useState<{ title: string, description: string, category: string, assignee_email: string } | null>(null);
+  const [editScript, setEditScript] = useState<{ title: string, description: string, category: string, assignee_emails: string[] } | null>(null);
   const [savingScript, setSavingScript] = useState(false);
 
   useEffect(() => {
@@ -1211,7 +1262,7 @@ function ScriptEditor() {
       const st = await api.getScriptSteps(scriptId!);
       setScript(s);
       setSteps(st);
-      if (s) setEditScript({ title: s.title, description: s.description, category: s.category || 'General', assignee_email: s.assignee_email || '' });
+      if (s) setEditScript({ title: s.title, description: s.description, category: s.category || 'General', assignee_emails: s.assignee_emails || [] });
     } catch (e) {
       console.error(e);
     }
@@ -1343,12 +1394,11 @@ function ScriptEditor() {
                       />
                   </div>
                   <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Assignee Email</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Assignee Emails</Label>
                       <Input 
-                        value={editScript?.assignee_email || ''} 
-                        type="email"
-                        onChange={e => setEditScript(prev => prev ? { ...prev, assignee_email: e.target.value } : null)} 
-                        placeholder="Customer email"
+                        value={(editScript?.assignee_emails || []).join(', ')} 
+                        onChange={e => setEditScript(prev => prev ? { ...prev, assignee_emails: e.target.value.split(',').map(s => s.trim()).filter(Boolean) } : null)} 
+                        placeholder="Comma-separated emails"
                       />
                   </div>
               </div>
@@ -1952,11 +2002,67 @@ function ExecutionView() {
   );
 }
 
+// --- Login View ---
+function LoginView() {
+  const { setEmail } = useUser();
+  const [inputEmail, setInputEmail] = useState('');
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputEmail.trim()) {
+      setEmail(inputEmail.trim());
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center bg-muted/20">
+      <Card className="w-full max-w-md shadow-2xl border-primary/20">
+        <CardHeader className="text-center pb-2">
+          <div className="mx-auto bg-primary text-primary-foreground p-3 rounded-xl w-16 h-16 flex items-center justify-center mb-4">
+            <span className="font-black text-3xl uppercase tracking-tighter">GP</span>
+          </div>
+          <CardTitle className="text-2xl font-bold tracking-tight">Welcome to QA Infra</CardTitle>
+          <CardDescription>Enter your email to access the enterprise testing hub.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input 
+                id="email"
+                type="email" 
+                placeholder="damian@gappify.com" 
+                value={inputEmail}
+                onChange={e => setInputEmail(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full font-bold shadow-md shadow-primary/20">
+              Continue
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // --- Main App Component ---
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [role, setRole] = useState<Role>('Gappify Admin');
-  const [email, setEmail] = useState<string>('damian@gappify.com');
+  const [email, setEmailState] = useState<string | null>(() => localStorage.getItem('user_email'));
+
+  const setEmail = (newEmail: string | null) => {
+    if (newEmail) {
+      localStorage.setItem('user_email', newEmail);
+    } else {
+      localStorage.removeItem('user_email');
+    }
+    setEmailState(newEmail);
+  };
+
+  const role: Role = !email ? 'Guest' : (email.endsWith('@gappify.com') ? 'Gappify Admin' : 'Customer');
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -1970,7 +2076,7 @@ export default function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const contextValue = { role, email, setRole, setEmail };
+  const contextValue = { role, email, setEmail };
 
   return (
     <UserContext.Provider value={contextValue}>
@@ -1988,26 +2094,15 @@ export default function App() {
             </Link>
             
             <div className="flex items-center space-x-4">
-              <div className="flex items-center gap-2 border bg-muted/30 rounded-full px-2 py-1">
-                <User className="h-4 w-4 text-muted-foreground ml-2" />
-                {role === 'Customer' && (
-                  <Input 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="h-7 text-xs w-[180px] border-none shadow-none bg-transparent focus-visible:ring-0 px-1"
-                  />
-                )}
-                <Select value={role} onValueChange={(val: Role) => setRole(val)}>
-                  <SelectTrigger className="w-[160px] h-8 border-none shadow-none focus:ring-0 text-xs font-bold uppercase tracking-wider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Gappify Admin">Admin View</SelectItem>
-                    <SelectItem value="Customer">Customer View</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {email && (
+                <div className="flex items-center gap-2 border bg-muted/30 rounded-full px-4 py-1.5">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-bold uppercase tracking-wider">{email}</span>
+                  <div className="w-px h-4 bg-border mx-2"></div>
+                  <span className="text-xs font-bold text-primary">{role}</span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 ml-2" onClick={() => setEmail(null)}>Sign out</Button>
+                </div>
+              )}
 
               <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full hover:bg-muted">
                 {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
@@ -2016,12 +2111,16 @@ export default function App() {
           </header>
 
           <main className="flex-1 overflow-hidden flex flex-col">
-            <Routes>
-              <Route path="/" element={<div className="p-6 md:p-10 max-w-7xl mx-auto w-full"><Dashboard /></div>} />
-              <Route path="/admin/scripts/:scriptId" element={<ScriptEditor />} />
-              <Route path="/execute/:scriptId" element={<ExecutionView />} />
-              <Route path="/report/:executionId" element={<ReportView />} />
-            </Routes>
+            {!email ? (
+              <LoginView />
+            ) : (
+              <Routes>
+                <Route path="/" element={<div className="p-6 md:p-10 max-w-7xl mx-auto w-full"><Dashboard /></div>} />
+                <Route path="/admin/scripts/:scriptId" element={<ScriptEditor />} />
+                <Route path="/execute/:scriptId" element={<ExecutionView />} />
+                <Route path="/report/:executionId" element={<ReportView />} />
+              </Routes>
+            )}
           </main>
         </div>
       </BrowserRouter>

@@ -5,7 +5,9 @@ import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './
 export const api = {
   async getScripts(): Promise<TestScript[]> {
     if (!supabase) return mockStore.getScripts();
-    const { data, error } = await supabase.from('test_scripts').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('test_scripts').select('*')
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data || [];
   },
