@@ -1191,26 +1191,28 @@ function ReportView() {
             </div>
           </div>
           <div className="self-end pb-1">
-             <Button 
-                onClick={() => {
-                  const failedStepsInfo = exeSteps.filter(s => s.status === 'fail').map((s, i) => 
-                    `Step: ${s.step.instruction}\nError / Comments: ${s.comments || 'No comments'}\nMedia attached: ${s.uploaded_media_url || 'None'}\n`
-                  ).join('\n---\n');
-                  const subject = encodeURIComponent(`UAT Results: ${execution.test_scripts.title}`);
-                  const body = encodeURIComponent(
-                    `Hello Gappify Team,\n\n` +
-                    `Here are the execution results for "${execution.test_scripts.title}".\n` +
-                    `Tester: ${execution.tester_email}\n` +
-                    `Link to review: ${window.location.origin}/report/${executionId}\n\n` +
-                    `Stats: ${stats.passed} Passed, ${stats.failed} Failed, ${stats.skipped} Skipped.\n\n` +
-                    (failedStepsInfo ? `Failed Steps Details:\n${failedStepsInfo}\n\n` : '') +
-                    `Additional feedback:\n[Write any feedback here]`
-                  );
-                  window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
-                }}
-             >
-                <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
-             </Button>
+             {(() => {
+                const failedStepsInfo = exeSteps.filter(s => s.status === 'fail').map((s, i) => 
+                  `Step: ${s.step.instruction}\nError / Comments: ${s.comments || 'No comments'}\nMedia attached: ${s.uploaded_media_url || 'None'}\n`
+                ).join('\n---\n');
+                const subject = encodeURIComponent(`UAT Results: ${execution.test_scripts.title}`);
+                const body = encodeURIComponent(
+                  `Hello Gappify Team,\n\n` +
+                  `Here are the execution results for "${execution.test_scripts.title}".\n` +
+                  `Tester: ${execution.tester_email}\n` +
+                  `Link to review: ${window.location.origin}/report/${executionId}\n\n` +
+                  `Stats: ${stats.passed} Passed, ${stats.failed} Failed, ${stats.skipped} Skipped.\n\n` +
+                  (failedStepsInfo ? `Failed Steps Details:\n${failedStepsInfo}\n\n` : '') +
+                  `Additional feedback:\n[Write any feedback here]`
+                );
+                return (
+                  <a href={`mailto:services@gappify.com?subject=${subject}&body=${body}`} target="_blank" rel="noopener noreferrer" className="self-end pb-1 inline-block">
+                     <Button>
+                        <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
+                     </Button>
+                  </a>
+                );
+             })()}
           </div>
         </div>
       </div>
@@ -1275,26 +1277,29 @@ function ReportView() {
                   )}
                   {stepResult.status === 'fail' && (
                     <div className="mt-4 pt-4 border-t border-muted/40 text-left">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
-                        onClick={() => {
-                          const subject = encodeURIComponent(`Issue Report: ${execution.test_scripts.title} - Step ${idx + 1}`);
-                          const body = encodeURIComponent(
-                            `Hello Gappify Team,\n\n` +
-                            `I'm reporting an issue in "${execution.test_scripts.title}".\n\n` +
-                            `Failed Step: ${stepResult.step.instruction}\n` +
-                            `Error / Comments: ${stepResult.comments || 'No comments'}\n` +
-                            `Media attached: ${stepResult.uploaded_media_url || 'None'}\n\n` +
-                            `Tester: ${execution.tester_email}\n` +
-                            `Link to review execution: ${window.location.origin}/report/${executionId}\n`
-                          );
-                          window.location.href = `mailto:services@gappify.com?subject=${subject}&body=${body}`;
-                        }}
-                      >
-                         <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
-                      </Button>
+                       {(() => {
+                         const subject = encodeURIComponent(`Issue Report: ${execution.test_scripts.title} - Step ${idx + 1}`);
+                         const body = encodeURIComponent(
+                           `Hello Gappify Team,\n\n` +
+                           `I'm reporting an issue in "${execution.test_scripts.title}".\n\n` +
+                           `Failed Step: ${stepResult.step.instruction}\n` +
+                           `Error / Comments: ${stepResult.comments || 'No comments'}\n` +
+                           `Media attached: ${stepResult.uploaded_media_url || 'None'}\n\n` +
+                           `Tester: ${execution.tester_email}\n` +
+                           `Link to review execution: ${window.location.origin}/report/${executionId}\n`
+                         );
+                         return (
+                           <a href={`mailto:services@gappify.com?subject=${subject}&body=${body}`} target="_blank" rel="noopener noreferrer" className="inline-block">
+                             <Button
+                               size="sm"
+                               variant="destructive"
+                               className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
+                             >
+                                <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
+                             </Button>
+                           </a>
+                         );
+                       })()}
                     </div>
                   )}
                 </div>
@@ -1804,6 +1809,8 @@ function ExecutionView() {
   const [comments, setComments] = useState('');
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  
+  const [stepResults, setStepResults] = useState<Record<string, 'pass'|'fail'>>({});
 
   useEffect(() => {
     if (scriptId) initializeExecution();
@@ -1821,6 +1828,15 @@ function ExecutionView() {
         const exe = await api.getExecution(executionIdParam);
         if (exe) {
           const results = await api.getExecutionSteps(executionIdParam);
+          // populate stepResults
+          const resultsMap: Record<string, 'pass'|'fail'> = {};
+          results.forEach(r => {
+             if (r.status === 'pass' || r.status === 'fail') {
+                 resultsMap[r.step_id] = r.status;
+             }
+          });
+          setStepResults(resultsMap);
+          
           // Find first step without a result
           const lastIdx = st.findIndex(ss => !results.find(r => r.step_id === ss.id));
           setExecution(exe);
@@ -1861,6 +1877,8 @@ function ExecutionView() {
         comments,
         uploaded_media_url: mediaUrl || undefined
       });
+      
+      setStepResults(prev => ({...prev, [steps[currentStepIndex].id]: status}));
 
       if (currentStepIndex < steps.length - 1) {
         setCurrentStepIndex(currentStepIndex + 1);
@@ -1881,7 +1899,7 @@ function ExecutionView() {
           passed_steps: passed,
           failed_steps: failed
         });
-        navigate('/');
+        navigate('/report/' + execution.id);
       }
     } catch (e) {
       console.error(e);
@@ -1894,7 +1912,53 @@ function ExecutionView() {
   const currentStep = steps[currentStepIndex];
 
   return (
-    <div className="flex-1 flex flex-col items-center bg-muted/20 pb-10 min-h-screen">
+    <div className="flex h-screen overflow-hidden bg-muted/20">
+      {/* Sidebar */}
+      <div className="w-80 border-r bg-card flex shrink-0 flex-col overflow-hidden hidden md:flex">
+        <div className="p-5 border-b bg-muted/30">
+           <Button variant="ghost" size="sm" render={<Link to="/" />} className="text-muted-foreground -ml-2 mb-2">
+             <ArrowLeft className="h-4 w-4 mr-1"/> Back
+           </Button>
+           <div className="font-extrabold text-xl truncate leading-tight" title={script.title}>{script.title}</div>
+           <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mt-1">Steps List</div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+           {steps.map((s, i) => {
+              const result = stepResults[s.id];
+              const isCurrent = i === currentStepIndex;
+              const isUpcoming = i > currentStepIndex;
+              
+              let bgColor = 'bg-card';
+              let icon = <div className="h-2 w-2 rounded-full bg-muted-foreground/30 mx-1" />;
+              
+              if (result === 'pass') {
+                 bgColor = 'bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-900/50';
+                 icon = <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />;
+              } else if (result === 'fail') {
+                 bgColor = 'bg-destructive/10 text-destructive border-destructive/30';
+                 icon = <XCircle className="h-4 w-4 text-destructive" />;
+              } else if (isCurrent) {
+                 bgColor = 'bg-primary/10 text-primary border-primary/30 ring-1 ring-primary/30';
+                 icon = <PlayCircle className="h-4 w-4 text-primary animate-pulse" />;
+              } else {
+                 bgColor = 'bg-muted/30 text-muted-foreground opacity-50 border-transparent';
+              }
+
+              return (
+                 <div key={s.id} className={`p-3 border rounded-lg text-sm font-medium flex items-start gap-3 transition-all ${bgColor}`}>
+                    <div className="mt-0.5 shrink-0">{icon}</div>
+                    <div className="flex-1 min-w-0">
+                       <span className="text-xs opacity-70 block mb-0.5 uppercase tracking-wide font-black">Step {i + 1}</span>
+                       <span className="leading-tight block truncate" title={s.instruction}>{s.instruction}</span>
+                    </div>
+                 </div>
+              );
+           })}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center pb-10 overflow-y-auto">
       <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -2117,6 +2181,7 @@ function ExecutionView() {
             </Card>
           </motion.div>
         </AnimatePresence>
+      </div>
       </div>
     </div>
   );
