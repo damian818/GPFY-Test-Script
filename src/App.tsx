@@ -64,19 +64,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 // --- Utility: Handle Mailto ---
 const handleMailto = (url: string) => {
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    setTimeout(() => {
-       if (document.body.contains(iframe)) {
-         document.body.removeChild(iframe);
-       }
-    }, 1000);
-  } catch (e) {
-    window.location.href = url;
-  }
+  window.open(url, '_top');
 };
 
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
