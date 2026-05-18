@@ -64,12 +64,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 // --- Utility: Handle Mailto ---
 const handleMailto = (url: string) => {
-  const a = document.createElement('a');
-  a.href = url;
-  // Let the browser handle standard mailto without target=_blank
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+       if (document.body.contains(iframe)) {
+         document.body.removeChild(iframe);
+       }
+    }, 1000);
+  } catch (e) {
+    window.location.href = url;
+  }
 };
 
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
@@ -2036,7 +2043,7 @@ function ExecutionView() {
         </div>
       </motion.div>
 
-      <div className="w-full max-w-2xl mt-8 px-6">
+      <div className="w-full max-w-2xl mt-4 px-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStepIndex}
@@ -2046,22 +2053,22 @@ function ExecutionView() {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
           >
             <Card className="shadow-2xl border-primary/10 overflow-hidden ring-1 ring-primary/5">
-                <CardHeader className="bg-primary/5 pt-4 pb-3 border-b">
-                    <div className="flex justify-between items-center mb-2">
+                <CardHeader className="bg-primary/5 pt-3 pb-2 border-b">
+                    <div className="flex justify-between items-center mb-1">
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] bg-primary/10 px-2 py-0.5 rounded-md">{currentStep.section}</span>
                         <span className="text-[10px] font-bold text-muted-foreground uppercase">Step Indicator</span>
                     </div>
-                    <CardTitle className="text-xl font-extrabold leading-tight tracking-tight drop-shadow-sm">{currentStep.instruction}</CardTitle>
+                    <CardTitle className="text-lg font-extrabold leading-tight tracking-tight drop-shadow-sm">{currentStep.instruction}</CardTitle>
                 </CardHeader>
-                <CardContent className="py-4 space-y-4">
+                <CardContent className="py-3 space-y-3">
                     {currentStep.notes && (
-                        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/20 p-3 rounded-xl flex gap-3">
-                            <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/20 p-2 rounded-lg flex gap-2">
+                            <div className="h-6 w-6 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                              <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-500" />
                             </div>
                             <div>
-                                <Label className="text-amber-800 dark:text-amber-500 text-[9px] font-black uppercase tracking-widest mb-0.5 block">Expected Outcome</Label>
-                                <p className="text-amber-950 dark:text-amber-300 text-sm font-medium leading-relaxed">{currentStep.notes}</p>
+                                <Label className="text-amber-800 dark:text-amber-500 text-[9px] font-black uppercase tracking-widest block">Expected Outcome</Label>
+                                <p className="text-amber-950 dark:text-amber-300 text-xs font-medium leading-relaxed">{currentStep.notes}</p>
                             </div>
                         </div>
                     )}
@@ -2071,41 +2078,41 @@ function ExecutionView() {
                         if (!linked) return null;
                         const linkedIndex = steps.indexOf(linked) + 1;
                         return (
-                            <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2">
+                            <div className="bg-primary/5 border border-primary/20 p-2.5 rounded-xl flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2">
                                 <div className="flex items-center gap-3">
                                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                                         <GitBranch className="h-4 w-4 text-primary" />
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Flow Dependency</p>
-                                        <p className="text-sm font-bold">Relates to Step {linkedIndex}: <span className="text-muted-foreground font-medium">{linked.instruction.substring(0, 40)}...</span></p>
+                                        <p className="text-xs font-bold">Relates to Step {linkedIndex}: <span className="text-muted-foreground font-medium">{linked.instruction.substring(0, 40)}...</span></p>
                                     </div>
                                 </div>
                                 <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="text-xs font-bold hover:bg-primary/10"
+                                    className="text-xs font-bold hover:bg-primary/10 h-7"
                                     onClick={() => setCurrentStepIndex(linkedIndex - 1)}
                                 >
-                                    Jump to Reference
+                                    Jump
                                 </Button>
                             </div>
                         );
                     })()}
 
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid md:grid-cols-2 gap-2">
                         {currentStep.test_data && (
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                            <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
                                     <Database className="h-3 w-3" />
                                     Required Test Data
                                 </Label>
-                                <div className="bg-primary/5 border-2 border-primary/10 p-3 rounded-xl flex items-center justify-between group">
-                                    <code className="text-primary font-black tracking-tighter sm:text-base text-sm">{currentStep.test_data}</code>
+                                <div className="bg-primary/5 border-2 border-primary/10 p-2 rounded-xl flex items-center justify-between group">
+                                    <code className="text-primary font-black tracking-tighter text-xs">{currentStep.test_data}</code>
                                     <Button 
                                         variant="ghost" 
                                         size="icon" 
-                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                                         onClick={() => navigator.clipboard.writeText(currentStep.test_data!)}
                                     >
                                         <Copy className="h-3 w-3" />
@@ -2115,12 +2122,12 @@ function ExecutionView() {
                         )}
 
                         {currentStep.media_url && (
-                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                             <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
                                     <PlayCircle className="h-3 w-3" />
                                     Reference Visual Aid
                                 </Label>
-                                <div className="relative aspect-video rounded-xl overflow-hidden border-2 bg-black shadow-lg">
+                                <div className="relative aspect-video rounded-xl overflow-hidden border-2 bg-black shadow-lg max-h-[100px]">
                                     {currentStep.media_url.match(/\.(mp4|webm)$/) ? (
                                         <video src={currentStep.media_url} controls className="w-full h-full object-contain" />
                                     ) : (
@@ -2131,36 +2138,35 @@ function ExecutionView() {
                         )}
                     </div>
 
-                    <div className="space-y-3">
-                        <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Verification Result</Label>
-                        <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Verification Result</Label>
+                        <div className="grid grid-cols-2 gap-2">
                             <Button 
                                 variant={status === 'pass' ? 'default' : 'outline'}
-                                className={`h-14 flex-col gap-1 rounded-xl transition-all duration-300 border-2 ${status === 'pass' ? 'bg-green-600 hover:bg-green-700 border-green-600 shadow-lg shadow-green-600/20' : 'hover:border-green-500/50 hover:bg-green-50/50 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
+                                className={`h-10 flex-row items-center gap-2 rounded-xl transition-all duration-300 border-2 ${status === 'pass' ? 'bg-green-600 hover:bg-green-700 border-green-600 shadow-lg shadow-green-600/20' : 'hover:border-green-500/50 hover:bg-green-50/50 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
                                 onClick={() => setStatus('pass')}
                             >
-                                <CheckCircle2 className={`h-5 w-5 ${status === 'pass' ? 'text-white' : 'text-green-500'}`} />
+                                <CheckCircle2 className={`h-4 w-4 ${status === 'pass' ? 'text-white' : 'text-green-500'}`} />
                                 <span className="font-black text-[10px] tracking-widest">SUCCESSFUL</span>
                             </Button>
                             <Button 
                                 variant={status === 'fail' ? 'destructive' : 'outline'}
-                                className={`h-14 flex-col gap-1 rounded-xl transition-all duration-300 border-2 ${status === 'fail' ? 'shadow-lg shadow-destructive/20 border-destructive' : 'hover:border-destructive/50 hover:bg-destructive/5 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
+                                className={`h-10 flex-row items-center gap-2 rounded-xl transition-all duration-300 border-2 ${status === 'fail' ? 'shadow-lg shadow-destructive/20 border-destructive' : 'hover:border-destructive/50 hover:bg-destructive/5 grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}`}
                                 onClick={() => setShowFailPrompt(true)}
                             >
-                                <XCircle className={`h-5 w-5 ${status === 'fail' ? 'text-white' : 'text-destructive'}`} />
+                                <XCircle className={`h-4 w-4 ${status === 'fail' ? 'text-white' : 'text-destructive'}`} />
                                 <span className="font-black text-[10px] tracking-widest">FAILURE FOUND</span>
                             </Button>
                         </div>
                         {status === 'fail' && (
-                            <div className="bg-destructive/5 border border-destructive/20 p-3 rounded-lg flex items-center justify-between shadow-inner animate-in fade-in slide-in-from-top-1">
-                                <div className="text-sm">
+                            <div className="bg-destructive/5 border border-destructive/20 p-2 rounded-lg flex items-center justify-between shadow-inner animate-in fade-in slide-in-from-top-1">
+                                <div className="text-xs">
                                    <span className="font-bold text-destructive">Step marked as failed.</span>
-                                   <span className="text-muted-foreground ml-1">Need immediate assistance?</span>
                                 </div>
                                 <Button 
                                     size="sm" 
                                     variant="destructive"
-                                    className="h-8 text-[10px] uppercase font-bold tracking-wider"
+                                    className="h-7 text-[9px] uppercase font-bold tracking-wider"
                                     onClick={() => {
                                         const subject = encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`);
                                         const body = encodeURIComponent(
@@ -2178,47 +2184,43 @@ function ExecutionView() {
                         )}
                     </div>
 
-                    <div className="space-y-3 pt-4 border-t">
-                        <Label className="text-sm font-black uppercase tracking-widest text-muted-foreground">Execution Narrative</Label>
-                        <div className="space-y-4">
+                    <div className="space-y-2 pt-3 border-t">
+                        <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Execution Narrative</Label>
+                        <div className="space-y-2">
                             <div className="relative group">
                                 <Textarea 
                                     placeholder="Click to start typing your observations..."
                                     value={comments}
                                     onChange={e => setComments(e.target.value)}
-                                    rows={2}
-                                    className="resize-none rounded-xl border-2 focus:ring-4 transition-all duration-300 text-sm"
+                                    rows={1}
+                                    className="resize-none rounded-xl border-2 focus:ring-4 transition-all duration-300 text-xs min-h-[40px]"
                                 />
-                                <div className="absolute top-3 right-3 text-muted-foreground/30 pointer-events-none group-focus-within:opacity-0 transition-opacity">
-                                  <Settings className="h-4 w-4" />
-                                </div>
                             </div>
                             
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Visual Evidence</Label>
-                                <div className="flex flex-wrap gap-3">
+                            <div className="space-y-1.5 flex flex-col">
+                                <div className="flex flex-wrap gap-2">
                                     <div className="flex-1">
                                         <Button 
                                             variant="outline" 
-                                            className={`w-full h-20 flex-col gap-1 border-dashed border-2 rounded-xl relative transition-all duration-300 ${mediaUrl ? 'border-green-500 bg-green-50/30' : 'hover:border-primary/50 hover:bg-primary/5'}`}
+                                            className={`w-full h-10 flex-row gap-2 border-dashed border-2 rounded-xl relative transition-all duration-300 ${mediaUrl ? 'border-green-500 bg-green-50/30' : 'hover:border-primary/50 hover:bg-primary/5'}`}
                                             disabled={uploading}
                                         >
                                             {uploading ? (
-                                                <div className="flex flex-col items-center gap-1">
-                                                  <div className="h-4 w-4 border-t-2 border-primary rounded-full animate-spin" />
+                                                <div className="flex flex-row items-center gap-2">
+                                                  <div className="h-3 w-3 border-t-2 border-primary rounded-full animate-spin" />
                                                   <span className="text-[9px] font-black text-primary">PROCESSING...</span>
                                                 </div>
                                             ) : mediaUrl ? (
-                                                <div className="flex flex-col items-center">
-                                                    <div className="bg-green-500 p-1 rounded-full mb-1">
+                                                <div className="flex flex-row items-center gap-2">
+                                                    <div className="bg-green-500 p-0.5 rounded-full">
                                                       <Check className="h-3 w-3 text-white" />
                                                     </div>
                                                     <span className="text-[9px] font-black text-green-600 uppercase tracking-tighter">Asset Linked</span>
                                                 </div>
                                             ) : (
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <UploadCloud className="h-5 w-5 text-muted-foreground" />
-                                                    <div className="font-black text-[9px] uppercase tracking-widest">Inject Evidence</div>
+                                                <div className="flex flex-row items-center gap-2">
+                                                    <UploadCloud className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="font-black text-[9px] uppercase tracking-widest">Inject Evidence Payload</span>
                                                 </div>
                                             )}
                                             <input 
@@ -2234,14 +2236,14 @@ function ExecutionView() {
                         </div>
                     </div>
                 </CardContent>
-                <CardFooter className="bg-muted/50 border-t p-4">
+                <CardFooter className="bg-muted/50 border-t p-3">
                     <Button 
-                        className="w-full h-12 text-base font-black uppercase tracking-[0.1em] shadow-lg shadow-primary/20 transition-all hover:translate-y-[-2px] active:translate-y-[0px]" 
+                        className="w-full h-10 text-sm font-black uppercase tracking-[0.1em] shadow-lg shadow-primary/20 transition-all hover:translate-y-[-1px] active:translate-y-[0px]" 
                         onClick={saveCurrentStep} 
                         disabled={!status}
                     >
                         {currentStepIndex < steps.length - 1 ? 'Commit & Proceed' : 'Finalize Session'}
-                        <ChevronRight className="ml-2 h-6 w-6" />
+                        <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                 </CardFooter>
             </Card>
