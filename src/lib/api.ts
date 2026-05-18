@@ -1,6 +1,6 @@
 import { supabase } from './supabase.ts';
 import { mockStore } from './store.ts';
-import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './types.ts';
+import { TestScript, TestScriptStep, TestExecution, TestExecutionStep, SupportNotification } from './types.ts';
 
 export const api = {
   async getScripts(): Promise<TestScript[]> {
@@ -145,5 +145,35 @@ export const api = {
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(filename);
     return publicUrl;
+  },
+
+  async createSupportNotification(notification: Omit<SupportNotification, 'id' | 'created_at' | 'status'>): Promise<SupportNotification> {
+    const response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(notification)
+    });
+    if (!response.ok) throw new Error('Failed to create notification');
+    return response.json();
+  },
+
+  async getSupportNotifications(): Promise<SupportNotification[]> {
+    const response = await fetch('/api/notifications');
+    if (!response.ok) throw new Error('Failed to fetch notifications');
+    return response.json();
+  },
+
+  async updateSupportNotification(id: string, updates: Partial<SupportNotification>): Promise<SupportNotification> {
+    const response = await fetch(`/api/notifications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update notification');
+    return response.json();
+  },
+
+  async clearNotifications(): Promise<void> {
+    await fetch('/api/notifications', { method: 'DELETE' });
   }
 };

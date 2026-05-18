@@ -43,3 +43,12 @@ export type TestExecutionStep = {
   comments?: string;
   uploaded_media_url?: string;
 };
+
+export type SupportNotification = {
+  id: string;
+  tester_email: string;
+  type: 'HELP_REQUESTED' | 'SCRIPT_FAILURE' | 'GENERAL_FEEDBACK';
+  details: any;
+  status: 'pending' | 'resolved';
+  created_at: string;
+};

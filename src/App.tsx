@@ -51,7 +51,7 @@ import {
 } from 'lucide-react';
 import { api } from './lib/api.ts';
 import { supabase } from './lib/supabase.ts';
-import { TestScript, TestScriptStep, TestExecution, TestExecutionStep } from './lib/types.ts';
+import { TestScript, TestScriptStep, TestExecution, TestExecutionStep, SupportNotification } from './lib/types.ts';
 
 // UI Components
 import { Button } from './components/ui/button.tsx';
@@ -63,11 +63,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select.tsx';
 
 
-// --- Utility: Handle Mailto ---
-const handleMailto = (url: string) => {
-  // Synchronous assignment bypasses React Router and prevents empty tabs.
-  window.location.href = url;
-};
+
 
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
 
@@ -242,6 +238,8 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
 }
 
 function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelect, moveOrder, filteredScriptsCount }: any) {
+  const { email } = useUser();
+  const { notify } = React.useContext(NotificationContext);
   const {
     attributes,
     listeners,
@@ -319,10 +317,21 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
                   variant="ghost" 
                   size="icon" 
                   className="hover:bg-primary/10 text-primary" 
-                  onClick={() => {
-                    const subject = encodeURIComponent(`Please review test script: ${script.title}`);
-                    const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
-                    handleMailto(`mailto:team@gappify.com?subject=${subject}&body=${body}`);
+                  onClick={async () => {
+                    try {
+                        await api.createSupportNotification({
+                            tester_email: email || 'anonymous',
+                            type: 'GENERAL_FEEDBACK',
+                            details: { 
+                                message: `Script shared for review: ${script.title}`, 
+                                subject: `Script Review Requested: ${script.title}`,
+                                script_id: script.id
+                            }
+                        });
+                        notify('Review notification sent to team inbox');
+                    } catch (e) {
+                        notify('Failed to send notification', 'error');
+                    }
                   }}
                 >
                   <Mail className="h-4 w-4" />
@@ -351,6 +360,122 @@ function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelec
   );
 }
 
+// --- Global Notification Hook-ish ---
+const NotificationContext = React.createContext<{ notify: (msg: string, type?: 'success' | 'error') => void }>({ notify: () => {} });
+
+export function NotificationDisplay({ message, type, onClear }: { message: string, type: 'success' | 'error', onClear: () => void }) {
+  React.useEffect(() => {
+    const timer = setTimeout(onClear, 4000);
+    return () => clearTimeout(timer);
+  }, [onClear]);
+
+  return (
+    <motion.div
+      initial={{ y: -100, opacity: 0 }}
+      animate={{ y: 20, opacity: 1 }}
+      exit={{ y: -100, opacity: 0 }}
+      className={`fixed top-0 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md border ${
+        type === 'success' ? 'bg-green-500/90 border-green-400 text-white' : 'bg-destructive/90 border-destructive/50 text-white'
+      }`}
+    >
+      {type === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+      <span className="font-bold text-sm tracking-tight">{message}</span>
+    </motion.div>
+  );
+}
+
+const SupportInbox = () => {
+    const [notifications, setNotifications] = useState<SupportNotification[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { notify } = React.useContext(NotificationContext);
+
+    useEffect(() => {
+        loadNotifications();
+    }, []);
+
+    const loadNotifications = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getSupportNotifications();
+            setNotifications(data);
+        } catch (e) {
+            console.error(e);
+        }
+        setLoading(false);
+    };
+
+    const resolveNotification = async (id: string) => {
+        try {
+            await api.updateSupportNotification(id, { status: 'resolved' });
+            notify('Notification resolved');
+            loadNotifications();
+        } catch (e) {
+            notify('Failed to resolve', 'error');
+        }
+    };
+
+    if (loading) return <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />)}</div>;
+
+    if (notifications.length === 0) return (
+        <div className="text-center py-20 border rounded-2xl border-dashed bg-card/30 flex flex-col items-center">
+            <Mail className="h-10 w-10 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-bold">Inbox is Clear</h3>
+            <p className="text-muted-foreground text-sm">No active support requests or failure alerts.</p>
+        </div>
+    );
+
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                    <Mail className="h-4 w-4" /> Team Inbox
+                </h3>
+                <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="text-[10px] uppercase font-bold text-muted-foreground hover:text-destructive"
+                    onClick={async () => {
+                        if (confirm('Clear all notifications?')) {
+                            await api.clearNotifications();
+                            loadNotifications();
+                        }
+                    }}
+                >
+                    Clear All
+                </Button>
+            </div>
+            {notifications.map(n => (
+                <Card key={n.id} className={`border-l-4 overflow-hidden shadow-sm hover:shadow-md transition-all ${n.status === 'resolved' ? 'border-l-muted opacity-60' : 'border-l-primary'}`}>
+                    <CardContent className="p-4 flex items-center justify-between">
+                        <div className="flex gap-4">
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                n.type === 'SCRIPT_FAILURE' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'
+                            }`}>
+                                {n.type === 'SCRIPT_FAILURE' ? <AlertCircle className="h-5 w-5" /> : <Mail className="h-5 w-5" />}
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">{n.type.replace('_', ' ')}</span>
+                                    <span className="text-[10px] text-muted-foreground font-mono">{new Date(n.created_at).toLocaleString()}</span>
+                                </div>
+                                <h4 className="font-bold text-sm">{n.tester_email} needs assistance</h4>
+                                <div className="text-xs text-muted-foreground mt-1 bg-muted/40 p-2 rounded-lg border border-border/50">
+                                    {n.details.message || n.details.comments || 'No specific message.'}
+                                </div>
+                            </div>
+                        </div>
+                        {n.status === 'pending' && (
+                            <Button size="sm" variant="outline" className="text-xs font-bold" onClick={() => resolveNotification(n.id)}>
+                                Mark Resolved
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    );
+};
+
 // --- Dashboard View ---
 function Dashboard() {
   const { role, email } = useUser();
@@ -365,7 +490,7 @@ function Dashboard() {
   const [newCategory, setNewCategory] = useState('');
 
   const [executions, setExecutions] = useState<TestExecution[]>([]);
-  const [activeTab, setActiveTab] = useState<'scripts' | 'history' | 'analytics'>('scripts');
+  const [activeTab, setActiveTab] = useState<'scripts' | 'history' | 'analytics' | 'inbox'>('scripts');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedScripts, setSelectedScripts] = useState<Set<string>>(new Set());
 
@@ -446,7 +571,7 @@ function Dashboard() {
           const oldIndex = filteredScripts.findIndex(s => s.id === active.id);
           const newIndex = filteredScripts.findIndex(s => s.id === over.id);
 
-          const newFiltered = arrayMove(filteredScripts, oldIndex, newIndex);
+          const newFiltered = arrayMove(filteredScripts, oldIndex, newIndex) as TestScript[];
           
           const sortedOrderIndexes = filteredScripts.map(s => s.order_index ?? 0).sort((a,b) => a-b);
           
@@ -458,7 +583,7 @@ function Dashboard() {
           }
           
           const updates = newFiltered.map((s, i) => {
-              return { ...s, order_index: sortedOrderIndexes[i] };
+              return { ...s, order_index: sortedOrderIndexes[i] } as TestScript;
           });
 
           // Optimistic UI update
@@ -467,7 +592,7 @@ function Dashboard() {
               for (const u of updates) {
                   prevMap.set(u.id, u);
               }
-              return Array.from(prevMap.values()).sort((a, b) => {
+              return (Array.from(prevMap.values()) as TestScript[]).sort((a, b) => {
                  const dA = a.order_index ?? 0;
                  const dB = b.order_index ?? 0;
                  if (dA !== dB) return dA - dB;
@@ -509,7 +634,7 @@ function Dashboard() {
     
     setLoading(true);
     let errorCount = 0;
-    for (const id of Array.from(selectedScripts)) {
+    for (const id of Array.from(selectedScripts) as string[]) {
       try {
         await api.deleteScript(id);
       } catch (e) {
@@ -563,6 +688,14 @@ function Dashboard() {
                 >
                     Analytics
                 </button>
+                {isAdmin && (
+                    <button 
+                        className={`flex-1 md:flex-none px-6 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${activeTab === 'inbox' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground/80'}`}
+                        onClick={() => setActiveTab('inbox')}
+                    >
+                        Inbox
+                    </button>
+                )}
             </div>
 
             {isAdmin && (
@@ -821,7 +954,7 @@ function Dashboard() {
                     </Card>
                 )}
             </motion.div>
-        ) : (
+        ) : activeTab === 'analytics' ? (
             <motion.div
               key="analytics-tab"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -829,6 +962,15 @@ function Dashboard() {
               exit={{ opacity: 0, scale: 0.95 }}
             >
               <AnalyticsDashboard executions={visibleExecutions} />
+            </motion.div>
+        ) : (
+            <motion.div
+              key="inbox-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+                <SupportInbox />
             </motion.div>
         )}
       </AnimatePresence>
@@ -1115,6 +1257,8 @@ function AnalyticsDashboard({ executions }: { executions: TestExecution[] }) {
 
 // --- Report View ---
 function ReportView() {
+  const { email } = useUser();
+  const { notify } = React.useContext(NotificationContext);
   const { executionId } = useParams();
   const [execution, setExecution] = useState<(TestExecution & { test_scripts: TestScript }) | null>(null);
   const [exeSteps, setExeSteps] = useState<(TestExecutionStep & { step: TestScriptStep })[]>([]);
@@ -1204,23 +1348,23 @@ function ReportView() {
           </div>
           <div className="self-end pb-1">
              {(() => {
-                const failedStepsInfo = exeSteps.filter(s => s.status === 'fail').map((s, i) => 
-                  `Step: ${s.step.instruction}\nError / Comments: ${s.comments || 'No comments'}\nMedia attached: ${s.uploaded_media_url || 'None'}\n`
-                ).join('\n---\n');
-                const subject = encodeURIComponent(`UAT Results: ${execution.test_scripts.title}`);
-                const body = encodeURIComponent(
-                  `Hello Gappify Team,\n\n` +
-                  `Here are the execution results for "${execution.test_scripts.title}".\n` +
-                  `Tester: ${execution.tester_email}\n` +
-                  `Link to review: ${window.location.origin}/report/${executionId}\n\n` +
-                  `Stats: ${stats.passed} Passed, ${stats.failed} Failed, ${stats.skipped} Skipped.\n\n` +
-                  (failedStepsInfo ? `Failed Steps Details:\n${failedStepsInfo}\n\n` : '') +
-                  `Additional feedback:\n[Write any feedback here]`
-                );
                 return (
                   <Button 
-                    onClick={() => {
-                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+                    onClick={async () => {
+                        try {
+                            await api.createSupportNotification({
+                                tester_email: email || execution.tester_email,
+                                type: 'GENERAL_FEEDBACK',
+                                details: { 
+                                    message: `Execution results shared for ${execution.test_scripts.title}`, 
+                                    subject: `UAT Results: ${execution.test_scripts.title}`,
+                                    execution_id: executionId 
+                                }
+                            });
+                            notify('Results shared with Gappify Team!');
+                        } catch (e) {
+                            notify('Failed to share results', 'error');
+                        }
                     }}
                   >
                      <CheckCircle2 className="h-4 w-4 mr-2" /> Notify Gappify
@@ -1292,23 +1436,27 @@ function ReportView() {
                   {stepResult.status === 'fail' && (
                     <div className="mt-4 pt-4 border-t border-muted/40 text-left">
                        {(() => {
-                         const subject = encodeURIComponent(`Issue Report: ${execution.test_scripts.title} - Step ${idx + 1}`);
-                         const body = encodeURIComponent(
-                           `Hello Gappify Team,\n\n` +
-                           `I'm reporting an issue in "${execution.test_scripts.title}".\n\n` +
-                           `Failed Step: ${stepResult.step.instruction}\n` +
-                           `Error / Comments: ${stepResult.comments || 'No comments'}\n` +
-                           `Media attached: ${stepResult.uploaded_media_url || 'None'}\n\n` +
-                           `Tester: ${execution.tester_email}\n` +
-                           `Link to review execution: ${window.location.origin}/report/${executionId}\n`
-                         );
                          return (
                            <Button
                              size="sm"
                              variant="destructive"
                              className="shadow-sm font-bold uppercase tracking-wider text-[10px]"
-                             onClick={() => {
-                                handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+                             onClick={async () => {
+                                try {
+                                    await api.createSupportNotification({
+                                        tester_email: email || execution.tester_email,
+                                        type: 'SCRIPT_FAILURE',
+                                        details: { 
+                                            message: `Issue reported in step ${idx + 1}: ${stepResult.comments || 'No comments'}`, 
+                                            subject: `Issue Report: ${execution.test_scripts.title} - Step ${idx + 1}`,
+                                            execution_id: executionId,
+                                            step_id: stepResult.step.id 
+                                        }
+                                    });
+                                    notify('Issue report sent to Gappify Team');
+                                } catch (e) {
+                                    notify('Failed to report issue', 'error');
+                                }
                              }}
                            >
                               <AlertCircle className="h-3.5 w-3.5 mr-2" /> Notify Gappify
@@ -1357,6 +1505,8 @@ function ReportView() {
 
 // --- Script Editor View ---
 function ScriptEditor() {
+  const { email } = useUser();
+  const { notify } = React.useContext(NotificationContext);
   const { scriptId } = useParams();
   const [script, setScript] = useState<TestScript | null>(null);
   const [steps, setSteps] = useState<TestScriptStep[]>([]);
@@ -1495,10 +1645,21 @@ function ScriptEditor() {
         <Button 
           variant="outline" 
           className="shadow-sm font-bold tracking-wider uppercase text-[10px]"
-          onClick={() => {
-            const subject = encodeURIComponent(`Please review test script: ${script.title}`);
-            const body = encodeURIComponent(`Hello,\n\nPlease review and execute the following test script by visiting:\n${window.location.origin}/test/${script.id}\n\nThanks!`);
-            handleMailto(`mailto:team@gappify.com?subject=${subject}&body=${body}`);
+          onClick={async () => {
+            try {
+                await api.createSupportNotification({
+                    tester_email: email || 'anonymous',
+                    type: 'GENERAL_FEEDBACK',
+                    details: { 
+                        message: `Script shared for review: ${script.title}`, 
+                        subject: `Script Review Requested: ${script.title}`,
+                        script_id: script.id
+                    }
+                });
+                notify('Team notified of script review request');
+            } catch (e) {
+                notify('Failed to send notification', 'error');
+            }
           }}
         >
           <Mail className="h-3.5 w-3.5 mr-2" /> Share Script
@@ -1809,6 +1970,7 @@ function ScriptEditor() {
 // --- Execution View ---
 function ExecutionView() {
   const { email } = useUser();
+  const { notify } = React.useContext(NotificationContext);
   const { scriptId } = useParams();
   const [searchParams] = useSearchParams();
   const executionIdParam = searchParams.get('executionId');
@@ -1989,20 +2151,27 @@ function ExecutionView() {
                    setShowFailPrompt(false);
                }}>Just mark as failed</Button>
                {(() => {
-                   const subject = encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`);
-                   const body = encodeURIComponent(
-                       `Hello Gappify Team,\n\n` +
-                       `I need assistance with a failed step.\n\n` +
-                       `Failed Step: ${currentStep?.instruction}\n` +
-                       `Tester: ${execution?.tester_email}\n`
-                   );
                    return (
                        <Button 
                            variant="destructive"
-                           onClick={() => {
+                           onClick={async () => {
                                setStatus('fail');
                                setShowFailPrompt(false);
-                               handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+                               try {
+                                   await api.createSupportNotification({
+                                       tester_email: email || 'anonymous',
+                                       type: 'SCRIPT_FAILURE',
+                                       details: { 
+                                           message: `Immediate assistance needed for step ${currentStepIndex + 1}.`, 
+                                           subject: `Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'}`,
+                                           execution_id: execution?.id,
+                                           step_index: currentStepIndex + 1
+                                       }
+                                   });
+                                   notify('Support alert sent to Gappify Team');
+                               } catch (e) {
+                                   notify('Failed to send alert', 'error');
+                               }
                            }}
                        >
                            Notify Gappify Now
@@ -2169,15 +2338,25 @@ function ExecutionView() {
                                     size="sm" 
                                     variant="destructive"
                                     className="h-7 text-[9px] uppercase font-bold tracking-wider"
-                                    onClick={() => {
-                                        const subject = encodeURIComponent(`Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`);
-                                        const body = encodeURIComponent(
-                                            `Hello Gappify Team,\n\n` +
-                                            `I need assistance with a failed step.\n\n` +
-                                            `Failed Step: ${currentStep.instruction}\n` +
-                                            `Tester: ${execution?.tester_email}\n`
-                                        );
-                                        handleMailto(`mailto:services@gappify.com?subject=${subject}&body=${body}`);
+                                    onClick={async () => {
+                                        const subject = `Immediate Assistance Needed: ${execution?.test_scripts?.title || 'Execution'} - Step ${currentStepIndex + 1}`;
+                                        const body = `Hello Gappify Team,\n\nI need assistance with a failed step.\n\nFailed Step: ${currentStep.instruction}\nTester: ${execution?.tester_email}\n`;
+                                        try {
+                                            await api.createSupportNotification({
+                                                tester_email: email || 'anonymous',
+                                                type: 'SCRIPT_FAILURE',
+                                                details: { 
+                                                    message: body, 
+                                                    subject,
+                                                    script_id: execution.script_id,
+                                                    execution_id: execution.id,
+                                                    step_index: currentStepIndex + 1
+                                                }
+                                            });
+                                            notify('Support request sent to Gappify Team');
+                                        } catch (e) {
+                                            notify('Failed to send request', 'error');
+                                        }
                                     }}
                                 >
                                     Notify Gappify Now
@@ -2307,6 +2486,7 @@ function LoginView() {
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [email, setEmailState] = useState<string | null>(() => localStorage.getItem('user_email'));
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
   const setEmail = (newEmail: string | null) => {
     if (newEmail) {
@@ -2315,6 +2495,10 @@ export default function App() {
       localStorage.removeItem('user_email');
     }
     setEmailState(newEmail);
+  };
+
+  const notify = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
   };
 
   const role: Role = !email ? 'Guest' : (email.endsWith('@gappify.com') ? 'Gappify Admin' : 'Customer');
@@ -2335,9 +2519,19 @@ export default function App() {
 
   return (
     <UserContext.Provider value={contextValue}>
-      <BrowserRouter>
-        <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-white">
-          <header className="border-b px-6 py-4 flex items-center justify-between bg-card text-card-foreground sticky top-0 z-50">
+      <NotificationContext.Provider value={{ notify }}>
+        <BrowserRouter>
+          <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-white">
+            <AnimatePresence>
+              {notification && (
+                <NotificationDisplay 
+                  message={notification.message} 
+                  type={notification.type} 
+                  onClear={() => setNotification(null)} 
+                />
+              )}
+            </AnimatePresence>
+            <header className="border-b px-6 py-4 flex items-center justify-between bg-card text-card-foreground sticky top-0 z-50">
             <Link to="/" className="flex items-center space-x-2 group">
               <div className="bg-primary text-primary-foreground p-1.5 rounded-lg transition-transform group-hover:scale-110 duration-300">
                 <span className="font-black tracking-wider text-xl uppercase">GP</span>
@@ -2379,6 +2573,7 @@ export default function App() {
           </main>
         </div>
       </BrowserRouter>
-    </UserContext.Provider>
+    </NotificationContext.Provider>
+  </UserContext.Provider>
   );
 }

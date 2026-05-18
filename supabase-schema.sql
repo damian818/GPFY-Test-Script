@@ -72,5 +72,20 @@ CREATE POLICY "Allow all select" ON test_execution_steps FOR SELECT USING (true)
 CREATE POLICY "Allow all insert" ON test_execution_steps FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow all update" ON test_execution_steps FOR UPDATE USING (true);
 
+-- Support Notifications Table
+CREATE TABLE support_notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tester_email text NOT NULL,
+  type text NOT NULL,
+  details jsonb DEFAULT '{}'::jsonb,
+  status text DEFAULT 'pending',
+  created_at timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE support_notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all select" ON support_notifications FOR SELECT USING (true);
+CREATE POLICY "Allow all insert" ON support_notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow all update" ON support_notifications FOR UPDATE USING (true);
+
 CREATE POLICY "Allow all media select" ON storage.objects FOR SELECT USING (bucket_id = 'media');
 CREATE POLICY "Allow all media insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'media');
