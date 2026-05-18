@@ -1,3 +1,6 @@
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, rectSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link, useParams, useNavigate, useSearchParams } from 'react-router';
@@ -230,6 +233,95 @@ function BulkUploadDialog({ onComplete }: { onComplete: () => void }) {
   );
 }
 
+function SortableScriptCard({ script, idx, selectedScripts, isAdmin, toggleSelect, moveOrder, filteredScriptsCount }: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: script.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : 1,
+    position: 'relative' as any,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="h-full">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: idx * 0.05 }}
+        className="h-full"
+      >
+        <Card className={`flex flex-col h-full hover:shadow-xl transition-all duration-300 border-l-4 group relative ${selectedScripts.has(script.id) ? 'border-primary shadow-md bg-primary/5' : 'border-l-primary/30'} ${isDragging ? 'shadow-2xl scale-105' : ''}`}>
+          {isAdmin && (
+            <div className="absolute top-3 right-3 z-10">
+                <input 
+                    type="checkbox" 
+                    className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                    checked={selectedScripts.has(script.id)}
+                    onChange={() => toggleSelect(script.id)}
+                />
+            </div>
+          )}
+          {isAdmin && (
+            <div {...attributes} {...listeners} className="absolute top-2 right-8 p-1.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-50 hover:opacity-100 transition-opacity">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-grip-horizontal"><circle cx="12" cy="9" r="1"/><circle cx="19" cy="9" r="1"/><circle cx="5" cy="9" r="1"/><circle cx="12" cy="15" r="1"/><circle cx="19" cy="15" r="1"/><circle cx="5" cy="15" r="1"/></svg>
+            </div>
+          )}
+          <CardHeader className="pb-3 pr-16 bg-card/50">
+              <div className="flex justify-between items-start mb-1">
+                  <div className="px-2 py-0.5 rounded bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/10">
+                      {script.category || 'General'}
+                  </div>
+              </div>
+              <CardTitle className="group-hover:text-primary transition-colors">{script.title}</CardTitle>
+              <CardDescription className="line-clamp-2 h-10">{script.description || 'No description provided.'}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 text-[11px] text-muted-foreground pt-0 flex items-center gap-1.5 uppercase font-semibold tracking-wider">
+              <Clock className="h-3 w-3" />
+              Created: {new Date(script.created_at).toLocaleDateString()}
+          </CardContent>
+          <CardFooter className="gap-2 border-t pt-4 bg-muted/20 mt-auto">
+              {isAdmin && (
+                <Button render={<Link to={`/admin/scripts/${script.id}`} />} variant="outline" size="sm" className="flex-1 border-primary/20 hover:bg-primary/5">
+                    <Settings2 className="mr-2 h-3.5 w-3.5" />
+                    Schema
+                </Button>
+              )}
+              <Button render={<Link to={`/execute/${script.id}`} />} size="sm" className="flex-1 shadow-md shadow-primary/20">
+                  <Play className="mr-2 h-3.5 w-3.5 fill-current" />
+                  Test Run
+              </Button>
+              {isAdmin && (
+                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
+                    if (confirm('Are you sure you want to delete this script?')) {
+                        console.log('Attempting to delete script object:', script);
+                        try {
+                          await api.deleteScript(script.id);
+                          window.location.reload(); // simple reload fallback if we don't have loadData injected
+                        } catch (e) {
+                            console.error('Delete failed', e);
+                            alert('Failed to delete: ' + e);
+                        }
+                    }
+                }}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+          </CardFooter>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
+
 // --- Dashboard View ---
 function Dashboard() {
   const { role, email } = useUser();
@@ -247,6 +339,11 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState<'scripts' | 'history' | 'analytics'>('scripts');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedScripts, setSelectedScripts] = useState<Set<string>>(new Set());
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useEffect(() => {
     loadData();
@@ -312,42 +409,41 @@ function Dashboard() {
     }
   };
 
-  const moveOrder = async (index: number, direction: 'up' | 'down') => {
-    // We only reorder among the currently displayed list
-    const newIdx = direction === 'up' ? index - 1 : index + 1;
-    if (newIdx < 0 || newIdx >= filteredScripts.length) return;
+  const handleDragEnd = async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (over && active.id !== over.id) {
+          const oldIndex = filteredScripts.findIndex(s => s.id === active.id);
+          const newIndex = filteredScripts.findIndex(s => s.id === over.id);
 
-    // Normalize order indices for displayed items first if they don't exist
-    const itemsToUpdate = [...filteredScripts];
-    const currentItem = itemsToUpdate[index];
-    const swapItem = itemsToUpdate[newIdx];
+          const newFiltered = arrayMove(filteredScripts, oldIndex, newIndex);
+          
+          const sortedOrderIndexes = filteredScripts.map(s => s.order_index ?? 0).sort((a,b) => a-b);
+          
+          const updates = newFiltered.map((s, i) => {
+              return { ...s, order_index: sortedOrderIndexes[i] };
+          });
 
-    const currentOrder = currentItem.order_index ?? index;
-    const swapOrder = swapItem.order_index ?? newIdx;
-    
-    // simple swap
-    currentItem.order_index = swapOrder;
-    swapItem.order_index = currentOrder;
+          setScripts(prev => {
+              const prevMap = new Map(prev.map(p => [p.id, p]));
+              for (const u of updates) {
+                  prevMap.set(u.id, u);
+              }
+              return Array.from(prevMap.values()).sort((a, b) => {
+                 const dA = a.order_index ?? 0;
+                 const dB = b.order_index ?? 0;
+                 if (dA !== dB) return dA - dB;
+                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
+          });
 
-    // fix local state immediately
-    setScripts(prev => prev.map(s => {
-      if (s.id === currentItem.id) return { ...s, order_index: swapOrder };
-      if (s.id === swapItem.id) return { ...s, order_index: currentOrder };
-      return s;
-    }).sort((a, b) => {
-        const orderA = a.order_index ?? 0;
-        const orderB = b.order_index ?? 0;
-        if (orderA !== orderB) return orderA - orderB;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    }));
-
-    try {
-      await api.updateScript(currentItem.id, { order_index: swapOrder });
-      await api.updateScript(swapItem.id, { order_index: currentOrder });
-    } catch (e) {
-      console.error(e);
-      loadData(); // revert on failure
-    }
+          try {
+             for (let i = 0; i < updates.length; i++) {
+                 if (updates[i].order_index !== newFiltered[i].order_index) {
+                     await api.updateScript(updates[i].id, { order_index: updates[i].order_index });
+                 }
+             }
+          } catch(e) { console.error(e); loadData(); }
+      }
   };
 
   const toggleSelect = (id: string) => {
@@ -586,80 +682,22 @@ function Dashboard() {
                     <Button onClick={() => setIsDialogOpen(true)}>Create Script</Button>
                   </div>
               ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredScripts.map((script, idx) => (
-                      <motion.div
-                        key={script.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                      >
-                        <Card className={`flex flex-col h-full hover:shadow-xl transition-all duration-300 border-l-4 group relative ${selectedScripts.has(script.id) ? 'border-primary shadow-md bg-primary/5' : 'border-l-primary/30'}`}>
-                          {isAdmin && (
-                            <div className="absolute top-3 right-3 z-10">
-                                <input 
-                                    type="checkbox" 
-                                    className="rounded border-muted-foreground/30 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-                                    checked={selectedScripts.has(script.id)}
-                                    onChange={() => toggleSelect(script.id)}
-                                />
-                            </div>
-                          )}
-                          <CardHeader className="pb-3 pr-10">
-                              <div className="flex justify-between items-start mb-1">
-                                  <div className="px-2 py-0.5 rounded bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/10">
-                                      {script.category || 'General'}
-                                  </div>
-                              </div>
-                              <CardTitle className="group-hover:text-primary transition-colors">{script.title}</CardTitle>
-                              <CardDescription className="line-clamp-2 h-10">{script.description || 'No description provided.'}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="flex-1 text-[11px] text-muted-foreground pt-0 flex items-center gap-1.5 uppercase font-semibold tracking-wider">
-                              <Clock className="h-3 w-3" />
-                              Created: {new Date(script.created_at).toLocaleDateString()}
-                          </CardContent>
-                          <CardFooter className="gap-2 border-t pt-4 bg-muted/20">
-                              {isAdmin && (
-                                <div className="flex gap-1 mr-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10" onClick={() => moveOrder(idx, 'up')} disabled={idx === 0}>
-                                        <ArrowUp className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10" onClick={() => moveOrder(idx, 'down')} disabled={idx === filteredScripts.length - 1}>
-                                        <ArrowDown className="h-3.5 w-3.5" />
-                                    </Button>
-                                </div>
-                              )}
-                              {isAdmin && (
-                                <Button render={<Link to={`/admin/scripts/${script.id}`} />} variant="outline" size="sm" className="flex-1 border-primary/20 hover:bg-primary/5">
-                                    <Settings2 className="mr-2 h-3.5 w-3.5" />
-                                    Schema
-                                </Button>
-                              )}
-                              <Button render={<Link to={`/execute/${script.id}`} />} size="sm" className="flex-1 shadow-md shadow-primary/20">
-                                  <Play className="mr-2 h-3.5 w-3.5 fill-current" />
-                                  Test Run
-                              </Button>
-                              {isAdmin && (
-                                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={async () => {
-                                    if (confirm('Are you sure you want to delete this script?')) {
-                                        console.log('Attempting to delete script object:', script);
-                                        try {
-                                          await api.deleteScript(script.id);
-                                          loadData();
-                                        } catch (e) {
-                                            console.error('Delete failed', e);
-                                            alert('Failed to delete: ' + e);
-                                        }
-                                    }
-                                }}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                          </CardFooter>
-                        </Card>
-                      </motion.div>
-                  ))}
-                  </div>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={filteredScripts.map(s => s.id)} strategy={rectSortingStrategy}>
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredScripts.map((script, idx) => (
+                          <SortableScriptCard 
+                            key={script.id} 
+                            script={script} 
+                            idx={idx} 
+                            selectedScripts={selectedScripts} 
+                            isAdmin={isAdmin} 
+                            toggleSelect={toggleSelect} 
+                          />
+                      ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
               )}
           </motion.div>
         ) : activeTab === 'history' ? (
