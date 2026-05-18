@@ -64,11 +64,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 // --- Utility: Handle Mailto ---
 const handleMailto = (url: string) => {
-  // Use a slight delay to ensure React state updates (like closing dialogs) 
-  // don't interfere with the protocol triggering.
-  setTimeout(() => {
-    window.location.href = url;
-  }, 50);
+  const link = document.createElement('a');
+  link.href = url;
+  
+  // Using _blank as a target helps trigger external protocol handlers 
+  // without navigating the current page away.
+  link.target = '_blank'; 
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 export type Role = 'Gappify Admin' | 'Customer' | 'Guest';
