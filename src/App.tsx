@@ -419,10 +419,18 @@ function Dashboard() {
           
           const sortedOrderIndexes = filteredScripts.map(s => s.order_index ?? 0).sort((a,b) => a-b);
           
+          // Ensure strictly increasing so duplicates are resolved
+          for (let i = 1; i < sortedOrderIndexes.length; i++) {
+             if (sortedOrderIndexes[i] <= sortedOrderIndexes[i-1]) {
+                 sortedOrderIndexes[i] = sortedOrderIndexes[i-1] + 1;
+             }
+          }
+          
           const updates = newFiltered.map((s, i) => {
               return { ...s, order_index: sortedOrderIndexes[i] };
           });
 
+          // Optimistic UI update
           setScripts(prev => {
               const prevMap = new Map(prev.map(p => [p.id, p]));
               for (const u of updates) {
@@ -436,13 +444,22 @@ function Dashboard() {
               });
           });
 
+          // Save to DB
           try {
+             let updatedCount = 0;
              for (let i = 0; i < updates.length; i++) {
-                 if (updates[i].order_index !== newFiltered[i].order_index) {
+                 const orig = filteredScripts.find(s => s.id === updates[i].id);
+                 if (orig && orig.order_index !== updates[i].order_index) {
                      await api.updateScript(updates[i].id, { order_index: updates[i].order_index });
+                     updatedCount++;
                  }
              }
-          } catch(e) { console.error(e); loadData(); }
+             console.log(`Updated ${updatedCount} scripts in DB.`);
+          } catch(e: any) { 
+             console.error("Save order error:", e); 
+             alert("Failed to save order: " + e.message);
+             loadData(); 
+          }
       }
   };
 
