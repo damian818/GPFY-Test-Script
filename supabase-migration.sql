@@ -28,7 +28,15 @@ BEGIN
   END IF;
 END $$;
 
--- 4. Create support_notifications table if it doesn't exist
+-- 4. Add creator_email for script creation attribution
+DO $$
+BEGIN
+  IF EXISTS(SELECT * FROM information_schema.tables WHERE table_name='test_scripts') AND NOT EXISTS(SELECT * FROM information_schema.columns WHERE table_name='test_scripts' and column_name='creator_email') THEN
+    ALTER TABLE test_scripts ADD COLUMN creator_email text;
+  END IF;
+END $$;
+
+-- 5. Create support_notifications table if it doesn't exist
 CREATE TABLE IF NOT EXISTS support_notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tester_email text NOT NULL,

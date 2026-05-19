@@ -9,6 +9,7 @@ class MockStore {
       description: 'Standard end-user testing for Gappify Accrual Cloud workflows.',
       category: 'User Training',
       tenant_domain: 'gappify.com',
+      creator_email: 'damian@gappify.com',
       created_at: new Date().toISOString(),
     },
     {
